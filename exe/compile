@@ -1,0 +1,3 @@
+#!/bin/sh
+
+coffee --compile --bare --output compiled/ src/ga.coffee src/test.coffee
