@@ -1,10 +1,75 @@
 # sph-ga
+this is a javascript library for fundamental calculations of euclidean and conformal geometric algebra.
 
-*work in progress*: only works for diagonal metrics so far, not for conformal geometric algebra.
+the focus of this library is on compactness and flexibility (functional with basic data structures to allow easy abstraction) as well as generality (no conceptual limits on the number of dimensions).
 
-this is a javascript library for basic calculations of geometric algebras, including conformal geometric algebra.
+## status
+*work in progress*: still in testing.
 
-the focus of this library is on compactness and flexibility (functional with basic data structures to allow easy abstraction) as well as generality (no limits on the number of dimensions because of pre-computations). these objectives, to some extent, limit the use of class hierarchies, convenience features, and specific use-case optimizations.
+~~~
+Test 1: Reverse: reverse(1) == 1: Success
+Test 2: Reverse: reverse(e1) == e1: Success
+Test 3: Reverse: reverse(e1e2) == -e1e2: Success
+Test 4: Reverse: reverse(e1e2e3) == -e1e2e3: Success
+Test 5: Reverse: reverse(1 + e1) == 1 + e1: Success
+Test 6: Reverse: reverse(1 + e1 + e1e2) == 1 + e1 - e1e2: Success
+Test 7: Reverse: reverse(e1 + e2 + e1e2) == e1 + e2 - e1e2: Success
+Test 8: Reverse: reverse(1 + e1 + e2 + e1e2 + e1e3 + e1e2e3) == 1 + e1 + e2 - e1e2 - e1e3 - e1e2e3: Success
+Test 9: Reverse Twice: reverse(reverse(e1 + e1e2)) == e1 + e1e2: Success
+Test 10: Involute: involute(e1e2e3) == -e1e2e3: Success
+Test 11: Conjugate: conjugate(e1e2) == -e1e2: Success
+Test 12: ep: Antisymmetry: a ∧ b == - (b ∧ a): Success
+Test 13: ep: Antisymmetry: a ∧ a == 0: Success
+Test 14: ep: Distributivity: a ∧ (b + c) == a ∧ b + a ∧ c: Success
+Test 15: ep: Distributivity: (a + b) ∧ c == a ∧ c + b ∧ c: Success
+Test 16: ep: Exterior Product with Scalars: s ∧ A == s A: Success
+Test 17: ep: Exterior Product with Scalars: A ∧ s == s A: Success
+Test 18: ep: Zero Product with Scalar Zero: 0 ∧ A == 0: Success
+Test 19: ep: Zero Product with Scalar Zero: A ∧ 0 == 0: Success
+Test 20: ep: Grading: grade(a ∧ Bk) = 1 + k: Success
+Test 21: ep: Decomposability: a ∧ b = 0 when a and b are linearly dependent: Success
+Test 22: ep: Exterior Product of Higher Grades: e1 ∧ e2 ∧ e3 != 0: Success
+Test 23: ep: Exterior Product of Higher Grades: e1 ∧ e1 == 0: Success
+Test 24: ep: Exterior Product of Higher Grades: e2 ∧ e2 == 0: Success
+Test 25: ep: Exterior Product of Higher Grades: e3 ∧ e3 == 0: Success
+Test 26: ep: Exterior product sign conflict test: (e1 ∧ e2) ∧ e3 == -e123: Success
+Test 27: ip: Commutativity: a ⋅ b == b ⋅ a: Success
+Test 28: ip: Scalar and Multivector: s ⋅ A == 0: Success
+Test 29: ip: Multivector and Scalar: A ⋅ s == 0: Success
+Test 30: ip: Vector with itself: a ⋅ a == |a|^2: Success
+Test 31: ip: Orthogonal Vectors: a ⋅ b == 0: Success
+Test 32: ip: Distributivity: a ⋅ (b + c) == a ⋅ b + a ⋅ c: Success
+Test 33: ip: Distributivity: (a + b) ⋅ c == a ⋅ c + b ⋅ c: Success
+Test 34: ip: Inner Product of Different Grades: A_k ⋅ B_m == 0 when k ≠ m: Success
+Test 35: ip: Inner Product of Different Grades: B_m ⋅ A_k == 0 when m ≠ k: Success
+Test 36: ip: Basis Vectors Inner Product: e_i ⋅ e_i == 1: Success
+Test 37: ip: Basis Vectors Inner Product: e_i ⋅ e_j == 0 when i ≠ j: Success
+Test 38: ip: Inner product sign conflict test: Success
+Test 39: cga: ep: Anti-Commutativity: e_i ∧ e_j == -e_j ∧ e_i: Success
+Test 40: cga: ep: Associativity: (e_i ∧ e_j) ∧ e_k == e_i ∧ (e_j ∧ e_k): Success
+Test 41: cga: ep: Distributivity: e_i ∧ (e_j + e_k) == e_i ∧ e_j + e_i ∧ e_k: Success
+Test 42: cga: ep: Idempotency: e_i ∧ e_i == 0: Success
+Test 43: cga: ep: Exterior product with conformal basis vectors: eo ∧ ei == 1: Success
+Test 44: cga: ep: Nested wedge products with conformal vectors creates bivector: eo ∧ e1: Success
+Test 45: cga: ep: Nested wedge products with conformal vectors: (eo ∧ e_i) ∧ e_j == eo ∧ (e_i ∧ e_j): Success
+Test 46: cga: ep: Higher-Grade Anti-Commutativity: e_i ∧ e_j ∧ e_k == -e_j ∧ e_i ∧ e_k: Success
+Test 47: cga: ep: Exterior product of conformal points: P = e0 ∧ e1 ∧ e2 ∧ e3 ∧ eo: Success
+Test 48: cga: ip: Inner product of standard basis vectors: e_i · e_j == δ_ij: Success
+Test 49: cga: ip: Inner product of same standard basis vectors: e_i · e_i == 1: Success
+Test 50: cga: ip: Inner product involving conformal basis vectors: eo · ei == -1: Success
+Test 51: cga: ip: Inner product involving conformal basis vectors: eo · eo == 0: Success
+Test 52: cga: ip: Inner product involving conformal basis vectors: ei · ei == 0: Success
+Test 53: cga: ip: Inner product involving conformal and standard basis vectors: eo · _i == 0: Success
+Test 54: cga: ip: Inner product involving conformal and standard basis vectors: ei · e_i == 0: Success
+Test 55: cga: ip: Orthogonality of conformal and standard basis vectors: e_i · eo == 0: Success
+Test 56: cga: ip: Orthogonality of conformal and standard basis vectors: e_i · ei == 0: Success
+Test 57: cga: ip: Inner product of multivectors: e_i · (e_j ∧ e_k) == δ_ij e_k - δ_ik e_j: Success
+Test 58: cga: ip: Inner product with eo: eo · (A ∧ ei) == A: Success
+Test 59: cga: ip: Inner product with ei: ei · (A ∧ eo) == A: Success
+Test 60: cga: ip: Inner product of conformal points: P · eo == 0: Success
+Test 61: cga: ip: Inner product of conformal points: P · ei == -0.5 (P · P): Success
+Test 62: cga: ip: Scalar inner product: A · B == sum A_i B_i - A+ B- - A- B+: Success
+~~~
 
 # license
 lgpl3+
@@ -72,6 +137,9 @@ r3.n  # dimensions
 # the length of the given metric defines the number of dimensions.
 constructor :: array:(integer ...):metric -> object
 
+# create a multivector representing a scalar
+s :: number -> multivector
+
 # get a basis vector for index. 1 -> e1, 2 -> e2, ..., n -> en
 basis :: integer:index -> multivector
 
@@ -113,6 +181,7 @@ conjugate :: multivector -> multivector
 add :: multivector multivector -> multivector
 subtract :: multivector multivector -> multivector
 pseudoscalar :: -> multivector
+inverse :: multivector -> multivector
 ~~~
 
 space object properties
@@ -132,14 +201,12 @@ the metric array passed to the constructor defines the signature of the space. e
 * `0` for null dimensions (basis vector squares to 0)
 
 # conformal geometric algebra
-core geometric algebra operations remain the same in conformal geometric algebra; no special library setup is necessary.
-
-in conformal geometric algebra, the interpretation of core operations and the structure of the space in which they are applied are significantly different due to the conformal models particular choice of metric and dimensional embedding. null vectors square to zero, unlike typical euclidean vectors.
+in conformal geometric algebra (cga), the interpretation of fundamental operations and the underlying structure of the space are markedly distinct, owing to the conformal model's specific selection of metric and dimensional embedding. although the metric tensor in cga is frequently expressible as a diagonal matrix, such as [1, 1, 1, -1, 0], this representation is inadequate for encapsulating the intricacies inherent to cga due to the incorporation of null vectors. consequently, we define the metric using a complete matrix tensor and explicitly designate the indices corresponding to the null vector components.
 
 ## examples
 ~~~
 # initialize the conformal geometric algebra R4,1
-c3 = new sph_ga [1, 1, 1, 1, -1]
+c3 = new sph_ga [1, 1, 1, 0, 0], [3, 4]
 
 # create basis vectors e1, e2, e3, e4, and e5
 e1 = c3.basis 1
@@ -170,5 +237,7 @@ reflected_point = c3.gp c3.gp(c3.reverse(n), point), n
 
 # ideas
 * the library could easily be ported to c
-* performance optimization through caching. per dimension exponentially increasing counts of blade comparisons and sign calculations are made. other libraries tend to solve this by pre-calculation for the current space, but this seems to only work up to a limited number of dimensions
-* performance optimization by selectively decomposing into lower-dimensional subspaces
+* performance optimization
+  * caching: the number of blade comparisons and sign computations grows exponentially with each additional dimension. while other libraries often address this by precomputing values tailored to the current space, this approach appears to be effective only up to a finite number of dimensions
+  * selective decomposition: decompose computations into lower-dimensional subspaces where possible to reduce complexity
+  * conditional short-circuit evaluations: employ conditional checks to bypass unnecessary computations, thereby improving efficiency when certain results can be determined early
