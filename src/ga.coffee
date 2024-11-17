@@ -8,18 +8,24 @@ class sph_ga
       @metric.push 0, 0
       @eo_index = @n - 1
       @ei_index = @n
-      @eo_id = 1 << (@eo_index - 1)
-      @ei_id = 1 << (@ei_index - 1)
+      @eo_bit_index = @eo_index - 1
+      @ei_bit_index = @ei_index - 1
+      @eo_id = 1 << @eo_bit_index
+      @ei_id = 1 << @ei_bit_index
       @eo = (coeff) -> [[@eo_id, coeff, 1]]
       @ei = (coeff) -> [[@ei_id, coeff, 1]]
-    @signature = @metric_to_signature @metric
     @pseudoscalar_id = (1 << @n) - 1
+    @metric_map = {}
+    for i in [0...@n]
+      @metric_map[1 << i] = @metric[i]
 
   basis_blade: (i, coeff) -> if i then [1 << (i - 1), coeff, 1] else [0, coeff, 0]
-  basis: (i) -> [@basis_blade i, 1]
+  basis: (i, coeff) -> [@basis_blade(i, (if coeff? then coeff else 1))]
   vector: (coeffs) -> @basis_blade i, a for a, i in coeffs when a
   s: (coeff) -> [[0, coeff, 0]]
-  blade: (indices, coeff) -> [indices.reduce(((id, i) -> if !i then id else id |= 1 << (i - 1)), 0), coeff, indices.length]
+  blade: (indices, coeff) ->
+    id = indices.reduce ((id, i) -> if !i then id else id |= 1 << (i - 1)), 0
+    [id, coeff, @grade(id)]
   mv: (terms) -> @blade indices, coeff for [indices, coeff] in terms
   apply_grade_sign: (a, f) -> ([id, coeff * f(grade), grade] for [id, coeff, grade] in a)
   involute: (a) -> @apply_grade_sign a, (grade) -> (-1) ** grade
@@ -36,33 +42,55 @@ class sph_ga
 
   coeffs_mv: (coeffs) -> [parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0
 
-  metric_to_signature: (a) ->
-    p = q = r = 0
-    for i in a
-      if i > 0 then p += 1
-      else if i < 0 then q += 1
-      else r += 1
-    [p, q, r]
+  # Memoization cache for grade computations
+  grade_cache: {}
 
   grade: (a) ->
+    return @grade_cache[a] if a of @grade_cache
     n = 0
-    while a != 0
-      a &= a - 1
+    b = a
+    while b != 0
+      b &= b - 1
       n += 1
+    @grade_cache[a] = n
     n
 
+  # Memoization cache for index retrieval
+  indices_cache: {}
+
   get_indices: (id) ->
+    return @indices_cache[id] if id of @indices_cache
     indices = []
     for i in [0...@n]
       if (id & (1 << i)) != 0
         indices.push i
+    @indices_cache[id] = indices
     indices
 
-  antisymmetric_sign: (id_a, id_b) ->
+  compute_ip_sign_and_metric: (id_a, id_b, shared) ->
+    indices_a = @get_indices(id_a)
+    indices_b = @get_indices(id_b)
+    indices_shared = @get_indices(shared)
+    # Positions of shared indices in b
+    positions_in_b = [ indices_b.indexOf(idx) for idx in indices_shared ]
+    swap_count = positions_in_b.reduce ((sum, pos) -> sum + pos), 0
+    # Compute sign based on swap_count
+    sign = (-1) ** swap_count
+    # Compute metric value
+    metric_val = 1
+    for idx in indices_shared
+      if @is_conformal and (idx == @eo_bit_index or idx == @ei_bit_index)
+        metric_val = 0
+        break
+      else
+        sign *= -1 if @metric[idx] < 0
+        metric_val *= @metric_map[1 << idx]
+    return { sign, metric_val }
+
+  compute_ep_sign: (id_a, id_b) ->
     vectors_a = @get_indices(id_a)
     vectors_b = @get_indices(id_b)
-    # Concatenate vectors from both blades, vectors_b first
-    concatenated = vectors_b.concat(vectors_a)
+    concatenated = vectors_a.concat(vectors_b)
     # Count the number of inversions (swaps needed to sort the list)
     count = 0
     for i in [0...concatenated.length]
@@ -72,200 +100,108 @@ class sph_ga
     sign = if (count % 2) == 0 then 1 else -1
     sign
 
-  contraction_sign: (id_a, id_b) ->
-    vectors_a = @get_indices(id_a)
-    vectors_b = @get_indices(id_b)
-    # Identify shared indices
-    shared_indices = vectors_a.filter (idx) -> idx in vectors_b
-    # Remove shared indices
-    vectors_a_remain = vectors_a.filter (idx) -> not idx in shared_indices
-    vectors_b_remain = vectors_b.filter (idx) -> not idx in shared_indices
-    # Concatenate remaining vectors: vectors_a_remain first
-    concatenated = vectors_a_remain.concat(vectors_b_remain)
-    # Count inversions to sort concatenated list
-    count = 0
-    for i in [0...concatenated.length]
-      for j in [i + 1...concatenated.length]
-        if concatenated[i] > concatenated[j]
-          count += 1
-    sign = if (count % 2) == 0 then 1 else -1
-    sign
-
-  compute_metric: (id_a) ->
-    metric_val = 1
-    for i in [0...@n]
-      if (id_a & (1 << i)) != 0
-        # Exclude null vectors eo and ei
-        if !(@is_conformal and (i == @eo_id or i == @ei_id))
-          metric_val *= @metric[i]
-    metric_val
-
-  ep: (a, b) ->
-    coeffs = {}
-    for [id_a, coeff_a, grade_a] in a
-      for [id_b, coeff_b, grade_b] in b
-        # Handle scalar blades (grade 0)
-        if grade_a == 0 and grade_b == 0
-          # Scalar ^ Scalar = 0
-          continue
-        if grade_a == 0
-          # Scalar ^ Blade = Blade scaled by scalar
-          id = id_b
-          grade = grade_b
-          coeff = coeff_a * coeff_b
-          if coeff != 0
-            if coeffs[id]? then coeffs[id][0] += coeff
-            else coeffs[id] = [coeff, grade]
-          continue
-        if grade_b == 0
-          # Blade ^ Scalar = Blade scaled by scalar
-          id = id_a
-          grade = grade_a
-          coeff = coeff_a * coeff_b
-          if coeff != 0
-            if coeffs[id]? then coeffs[id][0] += coeff
-            else coeffs[id] = [coeff, grade]
-          continue
-        # For higher-grade blades, ensure no overlapping basis vectors
-        if (id_a & id_b) != 0 then continue  # Overlapping basis vectors result in zero
-        id = id_a | id_b  # Use bitwise OR to combine indices correctly
-        sign = @antisymmetric_sign(id_a, id_b)
-        coeff = sign * coeff_a * coeff_b
-        if coeff != 0
-          if coeffs[id]? then coeffs[id][0] += coeff
-          else
-            coeffs[id] = [coeff, grade_a + grade_b]
-    # Convert to multivector format, filtering out zero coefficients
-    [parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0
+  ip_conformal_special_cases: (id_a, id_b, coeff_a, coeff_b, grade_b) ->
+    return null unless @is_conformal
+    # Inner product of eo and ei yields scalar -1
+    if (id_a == @eo_id and id_b == @ei_id) or (id_a == @ei_id and id_b == @eo_id)
+      coeff = -1 * coeff_a * coeff_b
+      return { id_result: 0, coeff, grade_result: 0 }
+    # Inner product of eo and (A ∧ ei) yields -A
+    if id_a == @eo_id and (id_b & @ei_id) != 0 and grade_b > 1
+      id_result = id_b ^ @ei_id
+      grade_A = grade_b - 1
+      sign = (-1) ** grade_A
+      coeff = sign * coeff_a * coeff_b
+      return { id_result, coeff, grade_result: grade_A }
+    # Inner product of ei and (A ∧ eo) yields A
+    if id_a == @ei_id and (id_b & @eo_id) != 0 and grade_b > 1
+      id_result = id_b ^ @eo_id
+      coeff = coeff_a * coeff_b  # Sign is positive
+      grade_result = grade_b - 1
+      return { id_result, coeff, grade_result }
+    # Inner product of eo with eo or ei with ei is zero
+    if (id_a == @eo_id and id_b == @eo_id) or (id_a == @ei_id and id_b == @ei_id)
+      return { id_result: 0, coeff: 0, grade_result: 0 }
+    return null
 
   ip: (a, b) ->
     coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       for [id_b, coeff_b, grade_b] in b
         # Skip inner product if either operand is scalar
-        if grade_a == 0 or grade_b == 0 then continue
-
-        # Inner product is defined when grade_a <= grade_b
-        if grade_a > grade_b then continue
-
-        grade_diff = grade_b - grade_a
-
-        # Special case: Inner product of eo and ei should yield scalar -1
-        if (@eo_id == id_a and @ei_id == id_b) or (@ei_id == id_a and @eo_id == id_b)
-          coeff = -1 * coeff_a * coeff_b
-          grade_result = 0  # Scalar
-          @coeffs_add(coeffs, 0, coeff, grade_result, 0) if coeff != 0
+        continue if grade_a == 0 or grade_b == 0
+        # Handle special cases
+        special_case = @ip_conformal_special_cases(id_a, id_b, coeff_a, coeff_b, grade_b)
+        if special_case?
+          { id_result, coeff, grade_result } = special_case
+          @coeffs_add(coeffs, id_result, coeff, grade_result) if coeff != 0
           continue
+        # General case: Inner product is defined when grade_a <= grade_b
+        continue if grade_a > grade_b
+        grade_result = grade_b - grade_a
+        # Compute shared basis vectors
+        shared = id_a & id_b
+        k = @grade(shared)
+        # The grade of the geometric product
+        grade_gp = grade_a + grade_b - 2 * k
+        # Inner product contributes when grade_gp == grade_result
+        continue if grade_gp != grade_result
+        # Compute the resulting blade ID
+        id_result = id_a ^ id_b
+        # Compute sign and metric value
+        { sign, metric_val } = @compute_ip_sign_and_metric(id_a, id_b, shared)
+        continue if metric_val == 0  # Skip if metric value is zero
+        # Compute the coefficient
+        coeff = sign * metric_val * coeff_a * coeff_b
+        @coeffs_add(coeffs, id_result, coeff, grade_result) if coeff != 0
+    # If coeffs is empty, result is zero scalar
+    @coeffs_add(coeffs, 0, 0, 0) if Object.keys(coeffs).length == 0
+    @coeffs_mv(coeffs)
 
-        # Special case: Inner product of eo and (A ∧ ei) yields A
-        if id_a == @eo_id and (id_b & @ei_id) != 0 and grade_b > 1
-          # Remove ei from id_b to get id_result representing A
-          id_result = id_b ^ @ei_id
-          # Compute the sign due to swapping ei past A
-          num_swaps = grade_b - 1
-          sign = (-1) ** num_swaps
-          # Compute the coefficient
-          coeff = sign * coeff_a * coeff_b
-          # The grade of the resulting blade
-          grade_result = grade_b - 1
-          @coeffs_add(coeffs, id_result, coeff, grade_result, 0) if coeff != 0
-          continue
-
-        # Special case: Inner product of ei and (A ∧ eo) yields A
-        if id_a == @ei_id and (id_b & @eo_id) != 0 and grade_b > 1
-          # Remove eo from id_b to get id_result representing A
-          id_result = id_b ^ @eo_id
-          # Compute the sign due to swapping eo past A
-          num_swaps = grade_b - 1
-          sign = (-1) ** num_swaps
-          # Compute the coefficient
-          coeff = sign * coeff_a * coeff_b
-          # The grade of the resulting blade
-          grade_result = grade_b - 1
-          @coeffs_add(coeffs, id_result, coeff, grade_result, 0) if coeff != 0
-          continue
-
-        # General inner product for blades where grade_a <= grade_b
-        # Check if blade A is a subset of blade B
-        if (id_a & id_b) == id_a
-          # Compute the resulting blade ID by removing blade A's bits from blade B
-          id_result = id_b ^ id_a
-
-          # Compute the sign based on the ordering of basis vectors
-          sign = @antisymmetric_sign(id_a, id_b)
-
-          # Compute metric value; assuming Euclidean for simplicity
-          # Adjust if handling different metrics
-          metric_val = 1
-          for i in [0...@n]
-            if (id_a & (1 << i)) != 0 and !(@is_conformal and (@eo_id == i or @ei_id == i))
-              metric_val *= @metric[i]
-
-          # Compute the coefficient
-          coeff = sign * metric_val * coeff_a * coeff_b
-
-          # The grade of the resulting blade
-          grade_result = grade_diff
-
-          @coeffs_add(coeffs, id_result, coeff, grade_result, 0) if coeff !=0
-
-        # Enhancement 1: Contraction Logic for Partial Overlaps
-        else
-          # Identify shared basis vectors
-          shared = id_a & id_b
-          if shared !=0
-            # Remove shared basis vectors from both blades
-            id_a_remaining = id_a ^ shared
-            id_b_remaining = id_b ^ shared
-
-            # Compute the resulting blade ID by combining remaining parts
-            id_result = id_a_remaining ^ id_b_remaining
-
-            # Compute the sign based on the ordering of basis vectors during contraction
-            sign = @antisymmetric_sign(shared, id_a_remaining)
-
-            # Compute metric value; assuming Euclidean for simplicity
-            metric_val =1
-            for i in [0...@n]
-              if (shared & (1 << i)) !=0 and !(@is_conformal and (@eo_id == i or @ei_id == i))
-                metric_val *= @metric[i]
-
-            # Compute the coefficient
-            coeff = sign * metric_val * coeff_a * coeff_b
-
-            # The grade of the resulting blade
-            grade_result = grade_diff
-
-            @coeffs_add(coeffs, id_result, coeff, grade_result, 0) if coeff !=0
-
-        continue # finish the inner loop
-
+  ep: (a, b) ->
+    coeffs = {}
+    for [id_a, coeff_a, grade_a] in a
+      for [id_b, coeff_b, grade_b] in b
+        if (id_a & id_b) != 0 then continue  # Overlapping basis vectors result in zero
+        id_result = id_a | id_b
+        sign = @compute_ep_sign(id_a, id_b)
+        coeff = sign * coeff_a * coeff_b
+        @coeffs_add(coeffs, id_result, coeff, grade_a + grade_b) if coeff != 0
     @coeffs_mv(coeffs)
 
   gp: (a, b) ->
-    inner = @ip a, b
-    outer = @ep a, b
-    combined = {}
-    for [id, coeff, grade] in inner
-      @coeffs_add combined, id, coeff, grade
-    for [id, coeff, grade] in outer
-      @coeffs_add combined, id, coeff, grade
-    @coeffs_mv combined
+    # Compute the inner product
+    ip_result = @ip(a, b)
+    # Compute the exterior product
+    ep_result = @ep(a, b)
+    console.log "ip_result", ip_result
+    console.log "ep_result", ep_result
+    # Initialize a map to accumulate coefficients by blade ID
+    coeffs = {}
+    # Helper function to add terms to the coeffs map
+    add_terms = (result) =>
+      for [id, coeff, grade] in result
+        @coeffs_add(coeffs, id, coeff, grade) if coeff != 0
+    # Add inner product results
+    add_terms(ip_result)
+    # Add exterior product results
+    add_terms(ep_result)
+    # If no terms were added, return zero scalar
+    if Object.keys(coeffs).length == 0
+      return @coeffs_mv([[0, 0, 0]])
+    # Otherwise, return the accumulated multivector
+    return @coeffs_mv(coeffs)
 
   combine: (a, b, scalar = 1) ->
-    ##console.log "combine input:", a, b
     coeffs = {}
     coeffs[id] = [coeff, grade] for [id, coeff, grade] in a
     for [id, coeff, grade] in b
       if coeffs[id]? then coeffs[id][0] += coeff * scalar
       else coeffs[id] = [coeff * scalar, grade]
-    ##console.log "combine output:", ([parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0)
     [parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0
 
   inverse: (a) ->
     a_reverse = @reverse a
-    console.log "inverse", a
-    console.log "inverse reverse", a_reverse
     denom_mv = @gp a, a_reverse
     denom = 0
     for [id, coeff, grade] in denom_mv
@@ -273,7 +209,6 @@ class sph_ga
         denom = coeff
         break
     if denom == 0 then throw new Error "multivector is not invertible (denominator is zero)."
-    #console.log ([parseInt(id), coeff / denom, grade] for [id, coeff, grade] in a_reverse)
     [parseInt(id), coeff / denom, grade] for [id, coeff, grade] in a_reverse
 
   point: (euclidean_coeffs) ->

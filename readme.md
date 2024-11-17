@@ -1,7 +1,7 @@
 # sph-ga
 this is a javascript library for fundamental calculations of euclidean and conformal geometric algebra.
 
-the focus of this library is on compactness and flexibility (functional with basic data structures to allow easy abstraction) as well as generality (no conceptual limits on the number of dimensions).
+the focus of this library is on compactness and flexibility (functional with basic data structures to allow easy abstraction) as well as generality (straightforward and no added limits on the number of dimensions).
 
 ## status
 *work in progress*: still in testing.
@@ -32,43 +32,46 @@ Test 22: ep: Exterior Product of Higher Grades: e1 ∧ e2 ∧ e3 != 0: Success
 Test 23: ep: Exterior Product of Higher Grades: e1 ∧ e1 == 0: Success
 Test 24: ep: Exterior Product of Higher Grades: e2 ∧ e2 == 0: Success
 Test 25: ep: Exterior Product of Higher Grades: e3 ∧ e3 == 0: Success
-Test 26: ep: Exterior product sign conflict test: (e1 ∧ e2) ∧ e3 == -e123: Success
-Test 27: ip: Commutativity: a ⋅ b == b ⋅ a: Success
-Test 28: ip: Scalar and Multivector: s ⋅ A == 0: Success
-Test 29: ip: Multivector and Scalar: A ⋅ s == 0: Success
-Test 30: ip: Vector with itself: a ⋅ a == |a|^2: Success
-Test 31: ip: Orthogonal Vectors: a ⋅ b == 0: Success
-Test 32: ip: Distributivity: a ⋅ (b + c) == a ⋅ b + a ⋅ c: Success
-Test 33: ip: Distributivity: (a + b) ⋅ c == a ⋅ c + b ⋅ c: Success
-Test 34: ip: Inner Product of Different Grades: A_k ⋅ B_m == 0 when k ≠ m: Success
-Test 35: ip: Inner Product of Different Grades: B_m ⋅ A_k == 0 when m ≠ k: Success
-Test 36: ip: Basis Vectors Inner Product: e_i ⋅ e_i == 1: Success
-Test 37: ip: Basis Vectors Inner Product: e_i ⋅ e_j == 0 when i ≠ j: Success
-Test 38: ip: Inner product sign conflict test: Success
-Test 39: cga: ep: Anti-Commutativity: e_i ∧ e_j == -e_j ∧ e_i: Success
-Test 40: cga: ep: Associativity: (e_i ∧ e_j) ∧ e_k == e_i ∧ (e_j ∧ e_k): Success
-Test 41: cga: ep: Distributivity: e_i ∧ (e_j + e_k) == e_i ∧ e_j + e_i ∧ e_k: Success
-Test 42: cga: ep: Idempotency: e_i ∧ e_i == 0: Success
-Test 43: cga: ep: Exterior product with conformal basis vectors: eo ∧ ei == 1: Success
-Test 44: cga: ep: Nested wedge products with conformal vectors creates bivector: eo ∧ e1: Success
-Test 45: cga: ep: Nested wedge products with conformal vectors: (eo ∧ e_i) ∧ e_j == eo ∧ (e_i ∧ e_j): Success
-Test 46: cga: ep: Higher-Grade Anti-Commutativity: e_i ∧ e_j ∧ e_k == -e_j ∧ e_i ∧ e_k: Success
-Test 47: cga: ep: Exterior product of conformal points: P = e0 ∧ e1 ∧ e2 ∧ e3 ∧ eo: Success
-Test 48: cga: ip: Inner product of standard basis vectors: e_i · e_j == δ_ij: Success
-Test 49: cga: ip: Inner product of same standard basis vectors: e_i · e_i == 1: Success
-Test 50: cga: ip: Inner product involving conformal basis vectors: eo · ei == -1: Success
-Test 51: cga: ip: Inner product involving conformal basis vectors: eo · eo == 0: Success
-Test 52: cga: ip: Inner product involving conformal basis vectors: ei · ei == 0: Success
-Test 53: cga: ip: Inner product involving conformal and standard basis vectors: eo · _i == 0: Success
-Test 54: cga: ip: Inner product involving conformal and standard basis vectors: ei · e_i == 0: Success
-Test 55: cga: ip: Orthogonality of conformal and standard basis vectors: e_i · eo == 0: Success
-Test 56: cga: ip: Orthogonality of conformal and standard basis vectors: e_i · ei == 0: Success
-Test 57: cga: ip: Inner product of multivectors: e_i · (e_j ∧ e_k) == δ_ij e_k - δ_ik e_j: Success
-Test 58: cga: ip: Inner product with eo: eo · (A ∧ ei) == A: Success
-Test 59: cga: ip: Inner product with ei: ei · (A ∧ eo) == A: Success
-Test 60: cga: ip: Inner product of conformal points: P · eo == 0: Success
-Test 61: cga: ip: Inner product of conformal points: P · ei == -0.5 (P · P): Success
-Test 62: cga: ip: Scalar inner product: A · B == sum A_i B_i - A+ B- - A- B+: Success
+Test 26: ip: Commutativity: a ⋅ b == b ⋅ a: Success
+Test 27: ip: Scalar and Multivector: s ⋅ A == 0: Success
+Test 28: ip: Multivector and Scalar: A ⋅ s == 0: Success
+Test 29: ip: Vector with itself: a ⋅ a == |a|^2: Success
+Test 30: ip: Orthogonal Vectors: a ⋅ b == 0: Success
+Test 31: ip: Distributivity: a ⋅ (b + c) == a ⋅ b + a ⋅ c: Success
+Test 32: ip: Distributivity: (a + b) ⋅ c == a ⋅ c + b ⋅ c: Success
+Test 33: ip: Inner Product of Different Grades: A_k ⋅ B_m == 0 when k ≠ m: Success
+Test 34: ip: Inner Product of Different Grades: B_m ⋅ A_k == 0 when m ≠ k: Success
+Test 35: ip: Basis Vectors Inner Product: e_i ⋅ e_i == 1: Success
+Test 36: ip: Basis Vectors Inner Product: e_i ⋅ e_j == 0 when i ≠ j: Success
+Test 37: ip: Inner product sign conflict test: Success
+Test 38: cga: ep: Anti-Commutativity: e_i ∧ e_j == -e_j ∧ e_i: Success
+Test 39: cga: ep: Associativity: (e_i ∧ e_j) ∧ e_k == e_i ∧ (e_j ∧ e_k): Success
+Test 40: cga: ep: Distributivity: e_i ∧ (e_j + e_k) == e_i ∧ e_j + e_i ∧ e_k: Success
+Test 41: cga: ep: Idempotency: e_i ∧ e_i == 0: Success
+Test 42: cga: ep: Exterior product with conformal basis vectors: eo ∧ ei == 1: Success
+Test 43: cga: ep: Nested wedge products with conformal vectors creates bivector: eo ∧ e1: Success
+Test 44: cga: ep: Nested wedge products with conformal vectors: (eo ∧ e_i) ∧ e_j == eo ∧ (e_i ∧ e_j): Success
+Test 45: cga: ep: Higher-Grade Anti-Commutativity: e_i ∧ e_j ∧ e_k == -e_j ∧ e_i ∧ e_k: Success
+Test 46: cga: ep: Exterior product of conformal points: P = e0 ∧ e1 ∧ e2 ∧ e3 ∧ eo: Success
+Test 47: cga: ip: Symmetry: A · B == B · A: Success
+Test 48: cga: ip: Linearity in first argument: A · (B + C) == A · B + A · C: Success
+Test 49: cga: ip: Linearity in second argument: (A + B) · C == A · C + B · C: Success
+Test 50: cga: ip: Inner product of standard basis vectors: e_i · e_j == δ_ij: Success
+Test 51: cga: ip: Inner product of same standard basis vectors: e_i · e_i == 1: Success
+Test 52: cga: ip: Inner product involving conformal basis vectors: eo · ei == -1: Success
+Test 53: cga: ip: Inner product involving conformal basis vectors: ei · ei == 0: Success
+Test 54: cga: ip: Inner product involving conformal basis vectors: eo · eo == 0: Success
+Test 55: cga: ip: Inner product involving conformal and standard basis vectors: eo · _i == 0: Success
+Test 56: cga: ip: Inner product involving conformal and standard basis vectors: ei · e_i == 0: Success
+Test 57: cga: ip: Orthogonality of conformal and standard basis vectors: e_i · eo == 0: Success
+Test 58: cga: ip: Orthogonality of conformal and standard basis vectors: e_i · ei == 0: Success
+Test 59: cga: ip: Inner product of multivectors: e_i · (e_j ∧ e_k) == δ_ij e_k - δ_ik e_j: Success
+Test 60: cga: ip: Inner product with ei: ei · (A ∧ eo) == A: Success
+Test 61: cga: ip: Inner product with eo: eo · (A ∧ ei) == A: Success
+Test 62: cga: ip: Inner product of conformal points: P · eo == 0: Success
+Test 63: cga: ip: Inner product of conformal points: P · ei == -0.5 (P · P): Success
+Test 64: cga: ip: Scalar inner product: A · B == sum A_i B_i - A+ B- - A- B+: Success
+All tests passed.
 ~~~
 
 # license
