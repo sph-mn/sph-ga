@@ -1,55 +1,12 @@
 # sph-ga
-this is a javascript library for fundamental calculations of euclidean and conformal geometric algebra.
+this is a javascript library for fundamental calculations of euclidean and conformal geometric algebras. custom algebras are possible.
 
-the focus of this library is on compactness and flexibility (functional with basic data structures to allow easy abstraction) as well as generality (straightforward and no added limits on the number of dimensions).
+the focus of this implementation is on compactness and flexibility (functional, with basic data structures to allow easy abstraction) as well as compactness and generality (straightforward and no limitations).
+
+the collection of automated test might also be useful for testing other geometric algebra libraries.
 
 ## status
-*work in progress*: still in testing.
-
-~~~
-Test 1: Reverse: reverse(1) == 1: Success
-Test 2: Reverse: reverse(e1) == e1: Success
-Test 3: Reverse: reverse(e1e2) == -e1e2: Success
-Test 4: Reverse: reverse(e1e2e3) == -e1e2e3: Success
-Test 5: Reverse: reverse(1 + e1) == 1 + e1: Success
-Test 6: Reverse: reverse(1 + e1 + e1e2) == 1 + e1 - e1e2: Success
-Test 7: Reverse: reverse(e1 + e2 + e1e2) == e1 + e2 - e1e2: Success
-Test 8: Reverse: reverse(1 + e1 + e2 + e1e2 + e1e3 + e1e2e3) == 1 + e1 + e2 - e1e2 - e1e3 - e1e2e3: Success
-Test 9: Reverse Twice: reverse(reverse(e1 + e1e2)) == e1 + e1e2: Success
-Test 10: Involute: involute(e1e2e3) == -e1e2e3: Success
-Test 11: Conjugate: conjugate(e1e2) == -e1e2: Success
-Test 12: ep: Antisymmetry: a ∧ b == - (b ∧ a): Success
-Test 13: ep: Antisymmetry: a ∧ a == 0: Success
-Test 14: ep: Distributivity: a ∧ (b + c) == a ∧ b + a ∧ c: Success
-Test 15: ep: Distributivity: (a + b) ∧ c == a ∧ c + b ∧ c: Success
-Test 16: ep: Exterior Product with Scalars: s ∧ A == s A: Success
-Test 17: ep: Exterior Product with Scalars: A ∧ s == s A: Success
-Test 18: ep: Zero Product with Scalar Zero: 0 ∧ A == 0: Success
-Test 19: ep: Zero Product with Scalar Zero: A ∧ 0 == 0: Success
-Test 20: ep: Grading: grade(a ∧ Bk) = 1 + k: Success
-Test 21: ep: Decomposability: a ∧ b = 0 when a and b are linearly dependent: Success
-Test 22: ep: Exterior Product of Higher Grades: e1 ∧ e2 ∧ e3 != 0: Success
-Test 23: ep: Exterior Product of Higher Grades: e1 ∧ e1 == 0: Success
-Test 24: ip: Commutativity: a ⋅ b == b ⋅ a: Success
-Test 25: ip: Scalar and Multivector: s ⋅ A == 0: Success
-Test 26: ip: Multivector and Scalar: A ⋅ s == 0: Success
-Test 27: ip: Vector with itself: a ⋅ a == |a|^2: Success
-Test 28: ip: Orthogonal Vectors: a ⋅ b == 0: Success
-Test 29: ip: Distributivity: a ⋅ (b + c) == a ⋅ b + a ⋅ c: Success
-Test 30: ip: Distributivity: (a + b) ⋅ c == a ⋅ c + b ⋅ c: Success
-Test 31: ip: Inner Product of Different Grades: A_k ⋅ B_m == 0 when k ≠ m: Success
-Test 32: ip: Inner Product of Different Grades: B_m ⋅ A_k == 0 when m ≠ k: Success
-Test 33: ip: Inner product sign conflict test: Success
-Test 34: cga: ep: Anti-Commutativity: e_i ∧ e_j == -e_j ∧ e_i: Success
-Test 35: cga: ep: Associativity: (e_i ∧ e_j) ∧ e_k == e_i ∧ (e_j ∧ e_k): Success
-Test 36: cga: ep: Distributivity: e_i ∧ (e_j + e_k) == e_i ∧ e_j + e_i ∧ e_k: Success
-Test 37: cga: ep: Idempotency: e_i ∧ e_i == 0: Success
-Test 38: cga: ep: Exterior product with conformal basis vectors: eo ∧ ei == 1: Success
-Test 39: cga: ep: Nested wedge products with conformal vectors creates bivector: eo ∧ e1: Success
-Test 40: cga: ep: Nested wedge products with conformal vectors: (eo ∧ e_i) ∧ e_j == eo ∧ (e_i ∧ e_j): Success
-Test 41: cga: ep: Higher-Grade Anti-Commutativity: e_i ∧ e_j ∧ e_k == -e_j ∧ e_i ∧ e_k: Success
-Test 42: cga: ep: Exterior product of conformal points: P = e0 ∧ e1 ∧ e2 ∧ e3 ∧ eo: Success
-~~~
+*work in progress*: still in development.
 
 # license
 lgpl3+
@@ -58,13 +15,45 @@ lgpl3+
 compiled/ga.js contains the javascript version.
 use with node.js via `require("./ga.js")` or include the code in html using `<script type="text/javascript" src="ga.js"></script>`.
 
-# examples
-examples use the [coffeescript](https://coffeescript.org/) javascript syntax.
+# usage
+the examples are using the [coffeescript](https://coffeescript.org/) javascript syntax.
 
-## creating basis vectors and using multivector operations
+## creating a space
 ~~~
 r3 = new sph_ga [1, 1, 1]
+~~~
 
+this example supplies an euclidean (diagonal) metric. for more options, see the section "customization" below.
+
+## creating vectors
+all types are represented as multivector objects.
+
+`s(number)` creates a scalar.
+~~~
+s1 = r3.s 1
+~~~
+
+`basis(n, coefficient=1)` creates the basis vector with that index. index 0 is the scalar.
+~~~
+e3 = r3.basis 3
+~~~
+
+`vector([coefficient, ...])` creates a multivector for as many bases in order as specified. the first array element is the scalar.
+~~~
+a = r3.vector [0, 2, 3, 4]   # a = 0 + 2e1 + 3e2 + 4e3
+~~~
+
+`mv([[[basis_index ...], coefficient], ...])` creates custom multivectors where multiple exterior-product-combined basis indices can be specified for each blade. blades can be specified arbitrarily in any order.
+~~~
+a = r3.mv [
+  [[0], 1]  # scalar part: 1
+  [[2], 3]  # 3 * e2
+  [[2, 3], 4]  # 4 * e23
+]
+~~~
+
+## operations
+~~~
 e1 = r3.basis 1
 e2 = r3.basis 2
 e3 = r3.basis 3
@@ -73,25 +62,32 @@ geometric_product = r3.gp e1, e2
 exterior_product = r3.ep e1, e2
 ~~~
 
-## creating arbitrary multivectors
 ~~~
-# multivector (s e1 e23)
-mv1 = r3.mv [
-  [[0], 1],  # scalar part: 1
-  [[1], 2],  # 2 * e1
-  [[2, 3], 3]  # 3 * e23
+# 1 + 2 * e1 + 3 * e23
+a = r3.mv [
+  [[0], 1]
+  [[1], 2]
+  [[2, 3], 3]
 ]
 
-# multivector (e2, e123)
-mv2 = r3.mv [
-  [[2], 4],  # 4 * e2
-  [[1, 2, 3], 5]  # 5 * e123
+# 4 * e2 + 5 * e123
+b = r3.mv [
+  [[2], 4]
+  [[1, 2, 3], 5]
 ]
 
-inner_product = r3.ip mv1, mv2
+inner_product = r3.ip a, b
 ~~~
+
+see section "api" for all available functions.
 
 ## accessing components
+blades are accesible by index in a vector object.
+
+`mv_blade(id)` extracts a blade of a specific id for cases when it is unknown at which index a blade exists
+~~~
+~~~
+
 multivector components are at corresponding array offsets. for instance, mv1 (s e1 e23) has its parts at index 0, 1, and 2 respectively.
 the coefficient is always at index 1 of a component.
 
@@ -112,81 +108,92 @@ ps_squared = r3.gp ps, ps  # should be -1 for r3
 r3.n  # dimensions
 ~~~
 
+## data types
+sph_ga uses three compound types: space (object), multivector (array[][3]), and blade (array[3]).
+
 # api
+the listing uses this [type signature format](https://sph.mn/computer/designs/type-signature.html). in this library, round bracket enclosed lists are javascript arrays.
+note that the functions do not validate input arguments and expect strict adherence to the [contract](https://en.wikipedia.org/wiki/Design_by_contract).
+
 ~~~
-# the length of the given metric defines the number of dimensions.
-constructor :: array:(integer ...):metric -> object
+# the number of dimensions is defined by the length of the metric.
+constructor :: metric options -> object
 
-# create a multivector representing a scalar
-s :: number -> multivector
+# create a scalar
+s :: coefficient -> multivector
 
-# get a basis vector for index. 1 -> e1, 2 -> e2, ..., n -> en
-basis :: integer:index -> multivector
+# get a basis vector of index. 1 -> e1, 2 -> e2, ..., n -> en
+basis :: basis_index -> multivector
 
-# a multivector based on the bases, for instance s * e1, s * e2, ..., s * en
-# it is possible to set only the first n.
-vector :: array:(coefficient ...) -> multivector
+# a multivector of 1-blades, for instance s * e1, s * e2, ..., s * en
+# adds as many basis blades in order as specified.
+vector :: (coefficient ...) -> multivector
 
-# create an n-blade. for example, blade([1, 3], 1) creates "e1^e3"
-blade :: array:((index ...) number:coeff) -> array:blade:(xor_bits, coefficient, grade)
+# create a multivector by specifying multiple blades like for
+mv :: (((basis_index ...) coefficient) ...) -> multivector
 
-# create a multivector by specifying multiple blades like for "blade"
-mv :: array:((indices coeff) ...) -> multivector
+# calculates the inner product using the left contraction rule.
+# the grade of the first argument must be less than or equal to the grade of the second argument
+ip :: multivector multivector -> multivector
+
+# calculates the exterior product (also known as the wedge product or outer product)
+ep :: multivector multivector -> multivector
 
 # calculates the geometric product
 gp :: multivector multivector -> multivector
 
-# calculates the inner product as the left contraction.
-# the grade of the first argument must be less than or equal to the grade of the second argument
-ip :: multivector multivector -> multivector
-
-# calculates the exterior product. the exterior product is also known as the wedge product or outer product
-ep :: multivector multivector -> multivector
-
 # compute the sandwich product: a * b * a ** -1
 sp :: multivector multivector -> multivector
 
-# reverse the order of basis vectors in each blade.
-# each blade's coefficient is multiplied by (-1 ** (k * (k - 1) / 2)), where k is the grade.
+# reverse the order of basis vectors of each blade.
+# each coefficient is multiplied by (-1 ** (k * (k - 1) / 2)), where k is the grade
 reverse :: multivector -> multivector
 
 # changes the sign of blades based on their grade.
-# each blades coefficient is multiplied by (-1) ** k
+# each coefficient is multiplied by (-1) ** k
 involute :: multivector -> multivector
 
 # combines the reverse and involute operations.
-# each blades coefficient is multiplied by (-1) ** (k * (k + 1) / 2)
+# each coefficient is multiplied by (-1) ** (k * (k + 1) / 2)
 conjugate :: multivector -> multivector
 
 add :: multivector multivector -> multivector
 subtract :: multivector multivector -> multivector
 pseudoscalar :: -> multivector
 inverse :: multivector -> multivector
+
+# accessors
+mv_blade :: id -> blade/null
+blade_id :: blade -> id
+blade_coeff :: blade -> coefficient
+blade_grade :: blade -> grade
+~~~
+
+data types and structures
+~~~
+basis_index: integer
+id: integer:bitset
+coefficient: number
+grade: integer
+blade: array:(id coefficient grade)
+multivector: array:(blade ...)
 ~~~
 
 space object properties
 ~~~
 n: integer  # number of dimensions
-metric: array:(integer ...)
+metric: ((integer) ...)  # always an n * n array
+pseudoscalar_id
 ~~~
-
-# notes about the data structures
-elements are basic javascript arrays and numbers and there are no restrictions on manipulating them directly.
-blades are identified by bit-set integers - one bit for each basis blade combined - since this naturally encodes the subset nature of basis vectors. blade index 0 is for the scalar.
-multivectors use a naturally sparse array format. this is however not needed in core operations and it can still be indexed when needed.
-
-the metric array passed to the constructor defines the signature of the space. each element represents the square of a basis vector:
-* `1` for spacelike dimensions (basis vector squares to +1)
-* `-1` for timelike dimensions (basis vector squares to -1)
-* `0` for null dimensions (basis vector squares to 0)
 
 # conformal geometric algebra
-in conformal geometric algebra (cga), the interpretation of fundamental operations and the underlying structure of the space are markedly distinct, owing to the conformal model's specific selection of metric and dimensional embedding. although the metric tensor in cga is frequently expressible as a diagonal matrix, such as [1, 1, 1, -1, 0], this representation is inadequate for encapsulating the intricacies inherent to cga due to the incorporation of null vectors. consequently, we define the metric using a complete matrix tensor and explicitly designate the indices corresponding to the null vector components.
+sph_ga has special features for cga.
 
-## examples
+## usage
 ~~~
-# initialize the conformal geometric algebra R4,1
-c3 = new sph_ga [1, 1, 1, 0, 0], [3, 4]
+# initialize the conformal geometric algebra R4,1.
+# only the euclidean part of the metric has to be specified.
+c3 = new sph_ga [1, 1, 1], conformal: true
 
 # create basis vectors e1, e2, e3, e4, and e5
 e1 = c3.basis 1
@@ -195,18 +202,12 @@ e3 = c3.basis 3
 e4 = c3.basis 4  # typically e0
 e5 = c3.basis 5  # typically e∞
 
-geometric_product = c3.gp e1, e2
-exterior_product = c3.ep e1, e2
-inner_product = c3.ip e1, e2
-
-# creating a conformal point
-# p = e1 + e2 + e3 + 0.5 * (e4 + e5)
+# creating a conformal point. p = e1 + e2 + e3 + 0.5 * (e4 + e5)
 point = c3.add(
   c3.add(e1, e2),
   c3.add(e3, c3.mv [
-    [[4], 0.5],  # 0.5 * e4
-    [[5], 0.5]   # 0.5 * e5
-  ]))
+    [[c3.eo_index], 0.5],  # 0.5 * e4
+    [[c3.ei_index], 0.5]   # 0.5 * e5]))
 
 # reflecting a point across a plane defined by a normal vector n.
 # assume n is a unit vector in the conformal space
@@ -215,9 +216,53 @@ n = c3.add e1, e2
 reflected_point = c3.gp c3.gp(c3.reverse(n), point), n
 ~~~
 
+## extended api when `conformal` is true
+functions
+~~~
+# create a basis vector for the origin. also known as "e+"
+eo :: coefficient -> multivector
+
+# create a basis vector for infinity. also known as "e-"
+ei :: coefficient -> multivector
+~~~
+
+space properties
+~~~
+ei_index
+eo_index
+ei_id
+eo_id
+~~~
+
+# customization
+## null vector
+custom null vectors can be specified as base indices using the "null_vector_indices" option.
+
+~~~
+space = new sph_ga metric, null_vector_indices: [3, 4]
+~~~
+
+## metric tensor
+the metric array passed in the options defines the signature of the space. each element represents the square of a basis vector combination:
+* `1` for spacelike dimensions
+* `-1` for timelike dimensions
+* `0` for null dimensions
+
+other values, eg for non-orthogonal metrics, are possible.
+diagonal metrics can be configured using flat arrays. for example, [1, 1, 1].
+custom tensors can be provided as an "n * n" array. example for five dimensions:
+~~~
+metric = [
+  [1, 0, 0, 0, 0],
+  [0, 1, 0, 0, 0],
+  [0, 0, 1, 0, 0],
+  [0, 0, 0, 0, -1],
+  [0, 0, 0, -1, 0],
+]
+
+space = new sph_ga metric
+~~~
+
 # ideas
 * the library could easily be ported to c
-* performance optimization
-  * caching: the number of blade comparisons and sign computations grows exponentially with each additional dimension. while other libraries often address this by precomputing values tailored to the current space, this approach appears to be effective only up to a finite number of dimensions
-  * selective decomposition: decompose computations into lower-dimensional subspaces where possible to reduce complexity
-  * conditional short-circuit evaluations: employ conditional checks to bypass unnecessary computations, thereby improving efficiency when certain results can be determined early
+* more performance optimizations. possibly decompose computations into lower-dimensional subspaces

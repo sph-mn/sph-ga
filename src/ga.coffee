@@ -3,7 +3,7 @@ class sph_ga
     @n = metric.length
     @metric = if Array.isArray(metric[0]) then metric else @diagonal_metric metric
     @pseudoscalar_id = (1 << @n) - 1
-    null_vectors = option.null_vectors || []
+    null_vectors = option.null_vector_indices || []
     @is_conformal = is_conformal
     if @is_conformal
       @eo_bit_index = @n - 2
@@ -14,9 +14,9 @@ class sph_ga
       @ei_index = @ei_bit_index + 1
       @eo = (coeff) -> [[@eo_id, coeff, 1]]
       @ei = (coeff) -> [[@ei_id, coeff, 1]]
-      null_vectors.push @eo_index, @ei_index
-      null_vectors.sort()
-    @null_vectors = new Set null_vectors
+      null_vector_indices.push @eo_index, @ei_index
+      null_vector_indices.sort()
+    @null_vectors = new Set null_vector_indices
 
   array_product = (a) -> a.reduce ((b, a) -> a * b), 1
   array_sum = (a) -> a.reduce ((b, a) -> a + b), 1
@@ -32,9 +32,10 @@ class sph_ga
   basis: (i, coeff) -> [@basis_blade(i, (if coeff? then coeff else 1))]
   vector: (coeffs) -> @basis_blade i, a for a, i in coeffs when a
   s: (coeff) -> [[0, coeff, 0]]
+  id_from_indices: (indices) -> indices.reduce ((id, i) -> id |= 1 << (i - 1)), 0
   blade: (indices, coeff) ->
-    id = indices.reduce ((id, i) -> if !i then id else id |= 1 << (i - 1)), 0
-    [id, coeff, @grade(id)]
+    if indices[0] then [id_from_indices(indices), coeff, indices.length]
+    else [id_from_indices(indices.slice(1)), coeff, indices.length - 1]
   mv: (terms) -> @blade indices, coeff for [indices, coeff] in terms
   apply_grade_sign: (a, f) -> ([id, coeff * f(grade), grade] for [id, coeff, grade] in a)
   involute: (a) -> @apply_grade_sign a, (grade) -> (-1) ** grade
@@ -63,6 +64,15 @@ class sph_ga
       n += 1
     @grade_cache[a] = n
     n
+
+
+  mv_blade: (a, id) ->
+    for b in a
+      return b if id == b[0]
+
+  blade_id: (a) -> a[0]
+  blade_coeff: (a) -> a[1]
+  blade_grade: (a) -> a[2]
 
   determinant: (matrix) ->
     determinant_generic = (matrix) ->
@@ -127,6 +137,18 @@ class sph_ga
     @indices_cache[id] = indices
     indices
 
+  count_inversions_sorted = (a, b) ->
+    inversions = 0
+    i = 0
+    j = 0
+    while i < a.length and j < b.length
+      if a[i] <= b[j]
+        i += 1
+      else
+        inversions += a.length - i
+        j += 1
+    inversions
+
   ip_metric = (id) ->
     indices = @get_basis_indices id # Extract basis indices for the blade
     a = 1
@@ -135,24 +157,32 @@ class sph_ga
         a *= @metric[i][j] || 0 # Direct access into the metric array
     a
 
-  ip_determinant_metric = (id, indices) ->
+  metric_contribution = (id, indices) ->
     if @is_orthonormal
       if @is_conformal and (id & @eo_id or id & @ei_id)
-        if id & @eo_id and id & @ei_id then array_product([@metric[i][i] for i in indices]) * -1
+        # Special case for conformal null vectors
+        if id & @eo_id and id & @ei_id
+          array_product([@metric[i][i] for i in indices]) * -1
         else 0
-      else array_product([@metric[i][i] for i in indices])
+      else
+        array_product([@metric[i][i] for i in indices])
     else
-      @determinant for i in indices
+      # Non-orthonormal metric calculation
+      determinant = 1
+      for i in indices
         for j in indices
-          @metric[i][j]
+          determinant *= @metric[i][j]
+      determinant
 
-  count_inversions = (a) ->
-    b = 0
-    n = a.length
-    for i in [0...n]
-      for j in [i+1...n]
-        if a[i] > a[j] then b += 1
-    b
+  ip_determinant_metric = (id, indices) ->
+    metric_contribution(id, indices)
+
+  ip_full_metric = (indices) ->
+    if @is_conformal and ([ @eo_id, @ei_id ].some((id) -> indices.includes(id)))
+      # Special case: Null vectors in differing blade IDs
+      metric_contribution(@eo_id | @ei_id, indices)  # Use logical OR for shared context
+    else
+      metric_contribution 0, indices
 
   ip: (a, b) ->
     coeffs = {}
@@ -170,8 +200,10 @@ class sph_ga
           else  # a ⋅ a
             @coeffs_add coeffs, id_a, coeff_a * coeff_b * ip_determinant_metric(id_a, indices_a), grade_a
         else  # a ⋅ b
-          sign = (-1) ** count_inversions(indices_a.concat get_indices id_b & ~id_a)
-          # todo: apply metric
+          id_c = id_b & ~id_a
+          sign = (-1) ** count_inversions_sorted indices_a, @get_indices id_c
+          coeff = coeff_a * coeff_b * sign * ip_full_metric indices_c
+          @coeffs_add coeffs, id_a, coeff, grade_b - grade_a
     @coeffs_to_mv coeffs
 
   ep: (a, b) ->
