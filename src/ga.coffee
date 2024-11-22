@@ -1,10 +1,10 @@
 class sph_ga
-  constructor: (metric, is_conformal, options) ->
+  constructor: (metric, options) ->
     @n = metric.length
     @metric = if Array.isArray(metric[0]) then metric else @diagonal_metric metric
     @pseudoscalar_id = (1 << @n) - 1
     null_vectors = option.null_vector_indices || []
-    @is_conformal = is_conformal
+    @is_conformal = options.is_conformal
     if @is_conformal
       @eo_bit_index = @n - 2
       @ei_bit_index = @n - 1
@@ -16,18 +16,13 @@ class sph_ga
       @ei = (coeff) -> [[@ei_id, coeff, 1]]
       null_vector_indices.push @eo_index, @ei_index
       null_vector_indices.sort()
+      point = (euclidean_coeffs) ->
+        ei_coeff = 0.5 * @array_sum(@array_product(euclidean_coeffs))
+        @vector [0].concat(euclidean_coeffs).concat([1, ei_coeff])
     @null_vectors = new Set null_vector_indices
 
-  array_product = (a) -> a.reduce ((b, a) -> a * b), 1
-  array_sum = (a) -> a.reduce ((b, a) -> a + b), 1
-
-  diagonal_metric: (a) ->
-    b = []
-    for i in [0...@n]
-      b[i] = []
-      for j in [0...@n]
-        b[i][j] = if i == j then a[i] else 0
-
+  array_product: (a) -> a.reduce ((b, a) -> a * b), 1
+  array_sum: (a) -> a.reduce ((b, a) -> a + b), 1
   basis_blade: (i, coeff) -> if i then [1 << (i - 1), coeff, 1] else [0, coeff, 0]
   basis: (i, coeff) -> [@basis_blade(i, (if coeff? then coeff else 1))]
   vector: (coeffs) -> @basis_blade i, a for a, i in coeffs when a
@@ -45,34 +40,31 @@ class sph_ga
   subtract: (a, b) -> @combine a, b, -1
   sp: (a, b) -> @gp @gp(a, b), @inverse(a)
   pseudoscalar: -> [@blade([1..@n], 1)]
-
-  coeffs_add: (coeffs, id, coeff, grade) ->
-    if coeffs[id]? then coeffs[id][0] += coeff
-    else coeffs[id] = [coeff, grade]
-
+  coeffs_add: (coeffs, id, coeff, grade) -> if coeffs[id]? then coeffs[id][0] += coeff else coeffs[id] = [coeff, grade]
   coeffs_to_mv: (coeffs) -> [parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0
+  bitcount_cache: {}
+  grade: (a) -> a[a.length - 1][2]
+  blade_id: (a) -> a[0]
+  blade_coeff: (a) -> a[1]
+  blade_grade: (a) -> a[2]
+  get: (a, id) -> for b in a then return b if id == b[0]
 
-  # Memoization cache for grade computations
-  grade_cache: {}
-
-  grade: (a) ->
-    return @grade_cache[a] if a of @grade_cache
+  bitcount: (a) ->
+    return @bitcount_cache[a] if a of @bitcount_cache
     n = 0
     b = a
     while b != 0
       b &= b - 1
       n += 1
-    @grade_cache[a] = n
+    @bitcount_cache[a] = n
     n
 
-
-  mv_blade: (a, id) ->
-    for b in a
-      return b if id == b[0]
-
-  blade_id: (a) -> a[0]
-  blade_coeff: (a) -> a[1]
-  blade_grade: (a) -> a[2]
+  diagonal_metric: (a) ->
+    b = []
+    for i in [0...@n]
+      b[i] = []
+      for j in [0...@n]
+        b[i][j] = if i == j then a[i] else 0
 
   determinant: (matrix) ->
     determinant_generic = (matrix) ->
@@ -112,7 +104,7 @@ class sph_ga
         matrix[1][2] * (matrix[2][0] * matrix[3][1] - matrix[2][1] * matrix[3][0]))
     else determinant_generic(matrix)
 
-  compute_ep_sign: (id_a, id_b) ->
+  ep_sign: (id_a, id_b) ->
     vectors_a = @get_basis_indices(id_a)
     vectors_b = @get_basis_indices(id_b)
     concatenated = vectors_a.concat(vectors_b)
@@ -125,7 +117,6 @@ class sph_ga
     sign = if (count % 2) == 0 then 1 else -1
     sign
 
-  # Memoization cache for index retrieval
   indices_cache: {}
 
   get_basis_indices: (id) ->
@@ -150,24 +141,23 @@ class sph_ga
     inversions
 
   ip_metric = (id) ->
-    indices = @get_basis_indices id # Extract basis indices for the blade
+    indices = @get_basis_indices id
     a = 1
     for i in indices
       for j in indices
-        a *= @metric[i][j] || 0 # Direct access into the metric array
+        a *= @metric[i][j] || 0
     a
 
   metric_contribution = (id, indices) ->
     if @is_orthonormal
       if @is_conformal and (id & @eo_id or id & @ei_id)
-        # Special case for conformal null vectors
+        # special case for conformal null vectors
         if id & @eo_id and id & @ei_id
-          array_product([@metric[i][i] for i in indices]) * -1
+          @array_product([@metric[i][i] for i in indices]) * -1
         else 0
       else
-        array_product([@metric[i][i] for i in indices])
+        @array_product([@metric[i][i] for i in indices])
     else
-      # Non-orthonormal metric calculation
       determinant = 1
       for i in indices
         for j in indices
@@ -179,10 +169,9 @@ class sph_ga
 
   ip_full_metric = (indices) ->
     if @is_conformal and ([ @eo_id, @ei_id ].some((id) -> indices.includes(id)))
-      # Special case: Null vectors in differing blade IDs
-      metric_contribution(@eo_id | @ei_id, indices)  # Use logical OR for shared context
-    else
-      metric_contribution 0, indices
+      # special case: Null vectors in differing blade ids
+      metric_contribution(@eo_id | @ei_id, indices)
+    else metric_contribution 0, indices
 
   ip: (a, b) ->
     coeffs = {}
@@ -210,12 +199,11 @@ class sph_ga
     coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       for [id_b, coeff_b, grade_b] in b
-        if (id_a & id_b) != 0 then continue  # Overlapping basis vectors result in zero
-        id_result = id_a | id_b
-        sign = @compute_ep_sign(id_a, id_b)
-        coeff = sign * coeff_a * coeff_b
-        @coeffs_add(coeffs, id_result, coeff, grade_a + grade_b) if coeff != 0
-    @coeffs_to_mv(coeffs)
+        continue if (id_a & id_b) != 0
+        id_c = id_a | id_b
+        coeff = coeff_a * coeff_b * @ep_sign id_a, idb
+        @coeffs_add coeffs, id_c, coeff, grade_a + grade_b if coeff != 0
+    @coeffs_to_mv coeffs
 
   gp: (a, b) -> @s 0
 
@@ -237,10 +225,6 @@ class sph_ga
         break
     if denom == 0 then throw new Error "multivector is not invertible (denominator is zero)."
     [parseInt(id), coeff / denom, grade] for [id, coeff, grade] in a_reverse
-
-  point: (euclidean_coeffs) ->
-    ei_coeff = 0.5 * (a * a for a in euclidean_coeffs).reduce(((b, a) -> b + a), 0)
-    @vector [1].concat(euclidean_coeffs).concat([1, ei_coeff])
 
 if typeof module isnt "undefined" and module.exports then module.exports = sph_ga
 else window.sph_ga = sph_ga

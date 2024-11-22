@@ -82,24 +82,19 @@ inner_product = r3.ip a, b
 see section "api" for all available functions.
 
 ## accessing components
-blades are accesible by index in a vector object.
+blades are accesible by `id` in a vector object.
 
-`mv_blade(id)` extracts a blade of a specific id for cases when it is unknown at which index a blade exists
-~~~
-~~~
-
-multivector components are at corresponding array offsets. for instance, mv1 (s e1 e23) has its parts at index 0, 1, and 2 respectively.
-the coefficient is always at index 1 of a component.
+`get(multivector, id)` extracts a blade with a specific id or returns `null` if it is not included.
 
 ~~~
-scalar_part = mv1[0][1]
-e23_coefficient = mv1[2][1]
+a = r3.s -4
+scalar_coefficient = blade_coeff get a, 0  # -4
 ~~~
 
 ## working with the pseudoscalar
 ~~~
 ps = r3.pseudoscalar()
-ps_grade = ps[0][2]  # should be 3 for r3
+ps_grade = r3.grade ps  # should be 3 for r3
 ps_squared = r3.gp ps, ps  # should be -1 for r3
 ~~~
 
@@ -112,8 +107,7 @@ r3.n  # dimensions
 sph_ga uses three compound types: space (object), multivector (array[][3]), and blade (array[3]).
 
 # api
-the listing uses this [type signature format](https://sph.mn/computer/designs/type-signature.html). in this library, round bracket enclosed lists are javascript arrays.
-note that the functions do not validate input arguments and expect strict adherence to the [contract](https://en.wikipedia.org/wiki/Design_by_contract).
+in this library, round bracket enclosed lists are javascript arrays. note that the functions do not validate input arguments and expect strict adherence to the [contract](https://en.wikipedia.org/wiki/Design_by_contract). the listing uses this [type signature format](https://sph.mn/computer/designs/type-signature.html).
 
 ~~~
 # the number of dimensions is defined by the length of the metric.
@@ -161,22 +155,14 @@ add :: multivector multivector -> multivector
 subtract :: multivector multivector -> multivector
 pseudoscalar :: -> multivector
 inverse :: multivector -> multivector
+grade :: multivector -> integer
+id_from_indices :: (basis_index ...) -> id
 
 # accessors
-mv_blade :: id -> blade/null
+get :: multivector id -> blade/null
 blade_id :: blade -> id
 blade_coeff :: blade -> coefficient
-blade_grade :: blade -> grade
-~~~
-
-data types and structures
-~~~
-basis_index: integer
-id: integer:bitset
-coefficient: number
-grade: integer
-blade: array:(id coefficient grade)
-multivector: array:(blade ...)
+blade_grade :: blade -> integer
 ~~~
 
 space object properties
@@ -184,6 +170,15 @@ space object properties
 n: integer  # number of dimensions
 metric: ((integer) ...)  # always an n * n array
 pseudoscalar_id
+~~~
+
+# data types and structures
+~~~
+basis_index: integer
+id: integer:bitset
+coefficient: number
+blade: array:(id coefficient grade)
+multivector: array:(blade ...)
 ~~~
 
 # conformal geometric algebra
@@ -199,8 +194,8 @@ c3 = new sph_ga [1, 1, 1], conformal: true
 e1 = c3.basis 1
 e2 = c3.basis 2
 e3 = c3.basis 3
-e4 = c3.basis 4  # typically e0
-e5 = c3.basis 5  # typically e∞
+e4 = c3.basis 4  # typically eo
+e5 = c3.basis 5  # typically ei
 
 # creating a conformal point. p = e1 + e2 + e3 + 0.5 * (e4 + e5)
 point = c3.add(
@@ -219,19 +214,19 @@ reflected_point = c3.gp c3.gp(c3.reverse(n), point), n
 ## extended api when `conformal` is true
 functions
 ~~~
-# create a basis vector for the origin. also known as "e+"
+# create a basis vector for the origin. also known as "e0" and "e+"
 eo :: coefficient -> multivector
 
-# create a basis vector for infinity. also known as "e-"
+# create a basis vector for infinity. also known as "e∞"" and "e-"
 ei :: coefficient -> multivector
 ~~~
 
 space properties
 ~~~
-ei_index
 eo_index
-ei_id
+ei_index
 eo_id
+ei_id
 ~~~
 
 # customization
