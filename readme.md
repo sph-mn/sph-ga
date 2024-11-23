@@ -194,8 +194,8 @@ c3 = new sph_ga [1, 1, 1], conformal: true
 e1 = c3.basis 1
 e2 = c3.basis 2
 e3 = c3.basis 3
-e4 = c3.basis 4  # typically eo
-e5 = c3.basis 5  # typically ei
+eo = c3.eo 1
+ei = c3.ei 1
 
 # creating a conformal point. p = e1 + e2 + e3 + 0.5 * (e4 + e5)
 point = c3.add(
@@ -230,12 +230,6 @@ ei_id
 ~~~
 
 # customization
-## null vector
-custom null vectors can be specified as base indices using the "null_vector_indices" option.
-
-~~~
-space = new sph_ga metric, null_vector_indices: [3, 4]
-~~~
 
 ## metric tensor
 the metric array passed in the options defines the signature of the space. each element represents the square of a basis vector combination:
