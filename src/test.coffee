@@ -41,17 +41,13 @@ e1 = r3.basis 1
 e2 = r3.basis 2
 e3 = r3.basis 3
 
-metric = [
-  [1, 0, 0, 0, 0],  # e1
-  [0, 1, 0, 0, 0],  # e2
-  [0, 0, 1, 0, 0],  # e3
-  [0, 0, 0, 0, -1],  # eo
-  [0, 0, 0, -1, 0],  # ei
-]
+c3 = new sph_ga [1, 1, 1, 0, 0], conformal: true
 
-c3 = new sph_ga metric, [3, 4], true
+console.log r3
+console.log c3
+process.exit 0
 
-apply_grade_sign_tests = [
+map_grade_factor_tests = [
   {
     title: "Reverse: reverse(1) == 1",
     actual: () -> r3.reverse(r3.vector([1])),
@@ -959,7 +955,7 @@ cga_gp_tests = [
 run_tests [
   ip_tests
   cga_ip_tests
-  apply_grade_sign_tests
+  map_grade_factor_tests
   ep_tests
   cga_ep_tests
   #gp_tests

@@ -2,16 +2,23 @@
 var sph_ga;
 
 sph_ga = (function() {
-  var count_inversions_sorted, ip_determinant_metric, ip_full_metric, ip_metric, metric_contribution;
-
   class sph_ga {
-    constructor(metric, options) {
-      var null_vectors, point;
+    constructor(metric, options = {}) {
+      var point;
       this.n = metric.length;
-      this.metric = Array.isArray(metric[0]) ? metric : this.diagonal_metric(metric);
+      this.is_conformal = !!options.conformal;
+      if (Array.isArray(metric[0])) {
+        [this.is_orthonormal, this.is_quasi_diagonal, this.null_vectors] = this.full_metric_properties(metric, this.n);
+      } else {
+        [this.is_orthonormal, this.is_quasi_diagonal, this.null_vectors] = this.flat_metric_properties(metric, this.n);
+        metric = this.flat_metric_to_full(metric, this.n);
+        if (this.is_conformal) {
+          metric[this.n - 2][this.n - 1] = -1;
+          metric[this.n - 1][this.n - 2] = -1;
+        }
+      }
+      this.metric = metric;
       this.pseudoscalar_id = (1 << this.n) - 1;
-      null_vectors = option.null_vector_indices || [];
-      this.is_conformal = options.is_conformal;
       if (this.is_conformal) {
         this.eo_bit_index = this.n - 2;
         this.ei_bit_index = this.n - 1;
@@ -25,15 +32,83 @@ sph_ga = (function() {
         this.ei = function(coeff) {
           return [[this.ei_id, coeff, 1]];
         };
-        null_vector_indices.push(this.eo_index, this.ei_index);
-        null_vector_indices.sort();
         point = function(euclidean_coeffs) {
           var ei_coeff;
           ei_coeff = 0.5 * this.array_sum(this.array_product(euclidean_coeffs));
           return this.vector([0].concat(euclidean_coeffs).concat([1, ei_coeff]));
         };
       }
-      this.null_vectors = new Set(null_vector_indices);
+    }
+
+    flat_metric_properties(metric, n) {
+      var a, is_orthonormal, k, len, null_vectors;
+      null_vectors = 0;
+      is_orthonormal = true;
+      for (k = 0, len = metric.length; k < len; k++) {
+        a = metric[k];
+        if (a) {
+          if (!(a === 1 || a === -1)) {
+            is_orthonormal = false;
+          }
+        } else {
+          null_vectors += 1;
+          is_orthonormal = false;
+        }
+      }
+      return [is_orthonormal, true, null_vectors];
+    }
+
+    full_metric_properties(metric, n) {
+      var diagonal, i, is_orthonormal, is_quasi_diagonal, is_symmetric, j, k, l, m, null_vectors, o, ref, ref1, ref2, ref3, ref4;
+      null_vectors = 0;
+      is_symmetric = true;
+      is_orthonormal = true;
+      is_quasi_diagonal = true;
+// check symmetry
+      for (i = k = 0, ref = n; (0 <= ref ? k < ref : k > ref); i = 0 <= ref ? ++k : --k) {
+        for (j = l = ref1 = i + 1, ref2 = n; (ref1 <= ref2 ? l < ref2 : l > ref2); j = ref1 <= ref2 ? ++l : --l) {
+          if (metric[i][j] !== metric[j][i]) {
+            return [false, false, null_vectors];
+          }
+        }
+      }
+      for (i = m = 0, ref3 = n; (0 <= ref3 ? m < ref3 : m > ref3); i = 0 <= ref3 ? ++m : --m) {
+        diagonal = metric[i][i];
+        if (!diagonal) {
+          null_vectors += 1;
+          is_orthonormal = false;
+          is_quasi_diagonal = false;
+          continue;
+        }
+        if (!(diagonal === 1 || diagonal === -1)) {
+          is_orthonormal = false;
+        }
+        for (j = o = 0, ref4 = n; (0 <= ref4 ? o < ref4 : o > ref4); j = 0 <= ref4 ? ++o : --o) {
+          if (i === j) {
+            next;
+          }
+          if (metric[i][j] !== 0) {
+            is_quasi_diagonal = false;
+            is_orthonormal = false;
+            break;
+          }
+        }
+        if (!(is_quasi_diagonal || is_orthonormal)) {
+          break;
+        }
+      }
+      return [is_orthonormal, is_quasi_diagonal, null_vectors];
+    }
+
+    flat_metric_to_full(metric, n) {
+      var a, b, i, k, ref;
+      a = Array(n);
+      for (i = k = 0, ref = n; (0 <= ref ? k < ref : k > ref); i = 0 <= ref ? ++k : --k) {
+        b = Array(n).fill(0);
+        b[i] = metric[i];
+        a[i] = b;
+      }
+      return a;
     }
 
     array_product(a) {
@@ -84,9 +159,9 @@ sph_ga = (function() {
 
     blade(indices, coeff) {
       if (indices[0]) {
-        return [id_from_indices(indices), coeff, indices.length];
+        return [this.id_from_indices(indices), coeff, indices.length];
       } else {
-        return [id_from_indices(indices.slice(1)), coeff, indices.length - 1];
+        return [this.id_from_indices(indices.slice(1)), coeff, indices.length - 1];
       }
     }
 
@@ -100,7 +175,7 @@ sph_ga = (function() {
       return results;
     }
 
-    apply_grade_sign(a, f) {
+    map_grade_factor(a, f) {
       var coeff, grade, id, k, len, results;
       results = [];
       for (k = 0, len = a.length; k < len; k++) {
@@ -111,19 +186,19 @@ sph_ga = (function() {
     }
 
     involute(a) {
-      return this.apply_grade_sign(a, function(grade) {
+      return this.map_grade_factor(a, function(grade) {
         return (-1) ** grade;
       });
     }
 
     conjugate(a) {
-      return this.apply_grade_sign(a, function(grade) {
+      return this.map_grade_factor(a, function(grade) {
         return (-1) ** ((grade * (grade + 1)) >> 1);
       });
     }
 
     reverse(a) {
-      return this.apply_grade_sign(a, function(grade) {
+      return this.map_grade_factor(a, function(grade) {
         return (-1) ** ((grade * (grade - 1)) >> 1);
       });
     }
@@ -213,24 +288,6 @@ sph_ga = (function() {
       return n;
     }
 
-    diagonal_metric(a) {
-      var b, i, j, k, ref, results;
-      b = [];
-      results = [];
-      for (i = k = 0, ref = this.n; (0 <= ref ? k < ref : k > ref); i = 0 <= ref ? ++k : --k) {
-        b[i] = [];
-        results.push((function() {
-          var l, ref1, results1;
-          results1 = [];
-          for (j = l = 0, ref1 = this.n; (0 <= ref1 ? l < ref1 : l > ref1); j = 0 <= ref1 ? ++l : --l) {
-            results1.push(b[i][j] = i === j ? a[i] : 0);
-          }
-          return results1;
-        }).call(this));
-      }
-      return results;
-    }
-
     determinant(matrix) {
       var determinant_generic, n;
       determinant_generic = function(matrix) {
@@ -298,6 +355,37 @@ sph_ga = (function() {
       return indices;
     }
 
+    count_inversions_sorted(a, b) {
+      var i, inversions, j;
+      inversions = 0;
+      i = 0;
+      j = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] <= b[j]) {
+          i += 1;
+        } else {
+          inversions += a.length - i;
+          j += 1;
+        }
+      }
+      return inversions;
+    }
+
+    ip_determinant_metric(id, indices) {
+      return this.ip_metric(id, indices);
+    }
+
+    ip_full_metric(indices) {
+      if (this.is_conformal && ([this.eo_id, this.ei_id].some(function(id) {
+        return indices.includes(id);
+      }))) {
+        // special case: Null vectors in differing blade ids
+        return this.ip_metric(this.eo_id | this.ei_id, indices);
+      } else {
+        return this.ip_metric(0, indices);
+      }
+    }
+
     ip(a, b) {
       var coeff, coeff_a, coeff_b, coeffs, grade, grade_a, grade_b, i, id, id_a, id_b, id_c, indices_a, k, l, len, len1, sign;
       coeffs = {};
@@ -308,10 +396,10 @@ sph_ga = (function() {
             results = [];
             for (k = 0, len = b.length; k < len; k++) {
               [id, coeff, grade] = b[k];
-              results.push([id, coeff * a[0][1] * ip_metric(id), grade]);
+              results.push([id, coeff * a[0][1] * this.ip_metric(id), grade]);
             }
             return results;
-          })();
+          }).call(this);
         }
       }
       if (1 === b.length) { // a ⋅ scalar
@@ -321,10 +409,10 @@ sph_ga = (function() {
             results = [];
             for (k = 0, len = a.length; k < len; k++) {
               [id, coeff, grade] = a[k];
-              results.push([id, coeff * b[0][1] * ip_metric(id), grade]);
+              results.push([id, coeff * b[0][1] * this.ip_metric(id), grade]);
             }
             return results;
-          })();
+          }).call(this);
         }
       }
       for (k = 0, len = a.length; k < len; k++) {
@@ -342,7 +430,7 @@ sph_ga = (function() {
               }
             } else {
               id_c = id_b & ~id_a;
-              sign = (-1) ** count_inversions_sorted(indices_a, this.get_indices(id_c));
+              sign = (-1) ** count_inversions_sorted(indices_a, this.get_basis_indices(id_c));
               coeff = coeff_a * coeff_b * sign * ip_full_metric(indices_c);
               this.coeffs_add(coeffs, id_a, coeff, grade_b - grade_a);
             }
@@ -429,101 +517,6 @@ sph_ga = (function() {
   sph_ga.prototype.bitcount_cache = {};
 
   sph_ga.prototype.indices_cache = {};
-
-  count_inversions_sorted = function(a, b) {
-    var i, inversions, j;
-    inversions = 0;
-    i = 0;
-    j = 0;
-    while (i < a.length && j < b.length) {
-      if (a[i] <= b[j]) {
-        i += 1;
-      } else {
-        inversions += a.length - i;
-        j += 1;
-      }
-    }
-    return inversions;
-  };
-
-  ip_metric = function(id) {
-    var a, i, indices, j, k, l, len, len1;
-    indices = this.get_basis_indices(id);
-    a = 1;
-    for (k = 0, len = indices.length; k < len; k++) {
-      i = indices[k];
-      for (l = 0, len1 = indices.length; l < len1; l++) {
-        j = indices[l];
-        a *= this.metric[i][j] || 0;
-      }
-    }
-    return a;
-  };
-
-  metric_contribution = function(id, indices) {
-    var determinant, i, j, k, l, len, len1;
-    if (this.is_orthonormal) {
-      if (this.is_conformal && (id & this.eo_id || id & this.ei_id)) {
-        // special case for conformal null vectors
-        if (id & this.eo_id && id & this.ei_id) {
-          return this.array_product([
-            (function() {
-              var k,
-            len,
-            results;
-              results = [];
-              for (k = 0, len = indices.length; k < len; k++) {
-                i = indices[k];
-                results.push(this.metric[i][i]);
-              }
-              return results;
-            }).call(this)
-          ]) * -1;
-        } else {
-          return 0;
-        }
-      } else {
-        return this.array_product([
-          (function() {
-            var k,
-          len,
-          results;
-            results = [];
-            for (k = 0, len = indices.length; k < len; k++) {
-              i = indices[k];
-              results.push(this.metric[i][i]);
-            }
-            return results;
-          }).call(this)
-        ]);
-      }
-    } else {
-      determinant = 1;
-      for (k = 0, len = indices.length; k < len; k++) {
-        i = indices[k];
-        for (l = 0, len1 = indices.length; l < len1; l++) {
-          j = indices[l];
-          determinant *= this.metric[i][j];
-        }
-      }
-      return determinant;
-    }
-  };
-
-  ip_determinant_metric = function(id, indices) {
-    return metric_contribution(id, indices);
-  };
-
-  ip_full_metric = function(indices) {
-    if (this.is_conformal && ([this.eo_id, this.ei_id].some(function(id) {
-      return indices.includes(id);
-    }))) {
-      // special case: Null vectors in differing blade ids
-      return metric_contribution(this.eo_id | this.ei_id, indices);
-    } else {
-      return metric_contribution(0, indices);
-    }
-  };
 
   return sph_ga;
 
