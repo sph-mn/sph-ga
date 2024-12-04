@@ -38,7 +38,7 @@ class sph_ga
         @vector [0].concat(euclidean_coeffs).concat([1, ei_coeff])
 
   array_product: (a) -> a.reduce ((b, a) -> a * b), 1
-  array_sum: (a) -> a.reduce ((b, a) -> a + b), 1
+  array_sum: (a) -> a.reduce ((b, a) -> a + b), 0
   basis_blade: (i, coeff) -> if i then [1 << (i - 1), coeff, 1] else [0, coeff, 0]
   basis: (i, coeff) -> [@basis_blade(i, (if coeff? then coeff else 1))]
   vector: (coeffs) -> @basis_blade i, a for a, i in coeffs when a
@@ -61,7 +61,7 @@ class sph_ga
   blade_coeff: (a) -> a[1]
   blade_grade: (a) -> a[2]
   get: (a, id) -> for b in a then return b if id == b[0]
-  bitcount_cache: {}
+  id_grade_cache: {}
   id_bit_indices_cache: {}
   null_scalar: [[0, 0, 0]]
 
@@ -72,6 +72,8 @@ class sph_ga
   coeffs_to_mv: (coeffs) ->
     a = ([parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0)
     if a.length then a else [[0, 0, 0]]
+
+  id_indices: (id) -> if id then (1 + a for a in @id_bit_indices(id)) else [0]
 
   id_bit_indices: (id) ->
     return @id_bit_indices_cache[id] if id of @id_bit_indices_cache
@@ -87,14 +89,14 @@ class sph_ga
       a[i] = b
     a
 
-  bitcount: (a) ->
-    return @bitcount_cache[a] if a of @bitcount_cache
+  id_grade: (a) ->
+    return @id_grade_cache[a] if a of @id_grade_cache
     n = 0
     b = a
     while b != 0
       b &= b - 1
       n += 1
-    @bitcount_cache[a] = n
+    @id_grade_cache[a] = n
     n
 
   count_inversions_sorted: (a, b) ->
@@ -173,14 +175,6 @@ class sph_ga
     start = @indices_null_start a
     [a.slice(0, start), a.slice(start)]
 
-  blade_string: (a) ->
-    [id, coeff, grade] = a
-    if id then base = "e" + @id_bit_indices(id).map((b) -> b + 1).join "_"
-    else base = "s"
-    "#{coeff}#{base}"
-
-  mv_string: (a) -> (@blade_string b for b in a).join " + "
-
   ip_metric_f: ->
     if @is_conformal
       (indices) ->
@@ -211,18 +205,25 @@ class sph_ga
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
       for [id_b, coeff_b, grade_b] in b
+        console.log @blade_to_string([id_a, coeff_a, grade_a]), @blade_to_string([id_b, coeff_b, grade_b])
         if id_a == id_b
           if metric_factor = @ip_metric indices_a
             @coeffs_add coeffs, 0, coeff_a * coeff_b * metric_factor, 0
-        else if grade_a <= grade_b && id_a == (id_b & id_a)
-          id_c = id_a ^ id_b
-          indices_c = @id_bit_indices id_c
-          if metric_factor = @ip_metric indices_c
-            sign = (-1) ** @count_inversions_sorted indices_a, indices_c
-            @coeffs_add coeffs, id_c, coeff_a * coeff_b * sign * metric_factor, grade_b - grade_a
-        else if !((id_a | id_b) & ~@id_null)
+          continue
+        id_a_e = id_a & ~@id_null
+        id_b_e = id_b & ~@id_null
+        id_a_n = id_a & @id_null
+        id_b_n = id_b & @id_null
+        if id_a_n || id_a_n
           if metric_factor = @ip_metric @id_bit_indices id_a | id_b
             @coeffs_add coeffs, 0, coeff_a * coeff_b * metric_factor, 0
+        if grade_a <= grade_b && id_a_e == (id_b_e & id_a_e)
+          id_c_e = id_a_e ^ id_b_e
+          indices_c_e = @id_bit_indices id_c_e
+          if metric_factor_e = @ip_metric indices_c_e
+            sign_e = (-1) ** @count_inversions_sorted(indices_a_e, indices_c_e)
+            @coeffs_add(coeffs, id_c_e, coeff_a * coeff_b * sign_e * metric_factor_e, grade_b_e - grade_a_e)
+          end
     @coeffs_to_mv coeffs
 
   ep: (a, b) ->
@@ -272,6 +273,33 @@ class sph_ga
         break
     if denom == 0 then throw new Error "multivector is not invertible (denominator is zero)."
     [parseInt(id), coeff / denom, grade] for [id, coeff, grade] in a_reverse
+
+  blade_to_string: (a) ->
+    [id, coeff, grade] = a
+    if id then base = "e" + @id_bit_indices(id).map((b) -> b + 1).join "_"
+    else base = ""
+    "#{coeff}#{base}"
+
+  mv_to_string: (a) -> (@blade_to_string b for b in a).join " + "
+
+  blade_from_string: (a) ->
+    match = a.match /^(?:(\d+(?:\.\d+)?))?([a-z]+)?(?:([\d_]+))?$/
+    return null unless match
+    left_number = if match[1]? then parseFloat match[1] else null
+    letters = if match[2]? then match[2] else null
+    right_numbers = if match[3]? then (parseInt n for n in match[3].split "_") else null
+    result = []
+    coeff = if left_number? then left_number else 1
+    indices = if right_numbers? then right_numbers else []
+    if letters?
+      switch letters
+        when "eo" then id = c3.eo_id
+        when "ei" then id = c3.ei_id
+        else id = @id_from_indices right_numbers
+    else id = 0
+    [id, coeff, @id_grade id]
+
+  mv_from_string: (a) -> @blade_from_string b for b in a.split " + "
 
 if typeof module isnt "undefined" and module.exports then module.exports = sph_ga
 else window.sph_ga = sph_ga

@@ -73,7 +73,7 @@ sph_ga = (function() {
     array_sum(a) {
       return a.reduce((function(b, a) {
         return a + b;
-      }), 1);
+      }), 0);
     }
 
     basis_blade(i, coeff) {
@@ -248,6 +248,21 @@ sph_ga = (function() {
       }
     }
 
+    id_indices(id) {
+      var a, l, len, ref, results;
+      if (id) {
+        ref = this.id_bit_indices(id);
+        results = [];
+        for (l = 0, len = ref.length; l < len; l++) {
+          a = ref[l];
+          results.push(1 + a);
+        }
+        return results;
+      } else {
+        return [0];
+      }
+    }
+
     id_bit_indices(id) {
       var a, i;
       if (id in this.id_bit_indices_cache) {
@@ -278,10 +293,10 @@ sph_ga = (function() {
       return a;
     }
 
-    bitcount(a) {
+    id_grade(a) {
       var b, n;
-      if (a in this.bitcount_cache) {
-        return this.bitcount_cache[a];
+      if (a in this.id_grade_cache) {
+        return this.id_grade_cache[a];
       }
       n = 0;
       b = a;
@@ -289,7 +304,7 @@ sph_ga = (function() {
         b &= b - 1;
         n += 1;
       }
-      this.bitcount_cache[a] = n;
+      this.id_grade_cache[a] = n;
       return n;
     }
 
@@ -642,7 +657,7 @@ sph_ga = (function() {
 
   };
 
-  sph_ga.prototype.bitcount_cache = {};
+  sph_ga.prototype.id_grade_cache = {};
 
   sph_ga.prototype.id_bit_indices_cache = {};
 

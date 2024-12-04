@@ -157,6 +157,8 @@ pseudoscalar :: -> multivector
 inverse :: multivector -> multivector
 grade :: multivector -> integer
 id_from_indices :: (basis_index ...) -> id
+mv_to_string :: multivector -> string
+mv_from_string :: string -> multivector
 
 # accessors
 get :: multivector id -> blade/null
@@ -250,6 +252,40 @@ metric = [
 ]
 
 space = new sph_ga metric
+~~~
+
+# string representations
+parsing and creating multivector string representations is supported.
+
+valid example components
+~~~
+20.12
+e2
+20.12e1
+e1_4_6
+20.12e1_4_6
+~~~
+
+multivector example
+~~~
+2 + e1 + e2_3
+~~~
+
+conversion examples
+~~~
+mystring = r3.mv_from_string "2 + e1 + e2_3"
+r3.mv_to_string mymv
+~~~
+
+## ebnf
+~~~
+input          = [ number ], [ letters ], [ "_" , integer_list ] ;
+number         = digit , { digit } , [ "." , digit , { digit } ] ;
+letters        = letter , { letter } ;
+integer_list   = integer , { "_" , integer } ;
+integer        = digit , { digit } ;
+digit          = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+letter         = "a" | "b" | "c" | "d" | ... | "z" ;
 ~~~
 
 # ideas
