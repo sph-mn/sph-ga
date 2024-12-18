@@ -433,7 +433,7 @@ sph_ga = (function() {
       return generate([], array, n);
     }
 
-    sign(a, b) { // count sorted inversions
+    count_sorted_inversions(a, b) {
       var c, i, j;
       c = 0;
       i = 0;
@@ -444,6 +444,19 @@ sph_ga = (function() {
         } else {
           c += a.length - i;
           j += 1;
+        }
+      }
+      return (-1) ** c;
+    }
+
+    count_inversions(indices) {
+      var c, i, j, l, o, ref, ref1, ref2;
+      c = 0;
+      for (i = l = 0, ref = indices.length; (0 <= ref ? l < ref : l > ref); i = 0 <= ref ? ++l : --l) {
+        for (j = o = ref1 = i + 1, ref2 = indices.length; (ref1 <= ref2 ? o < ref2 : o > ref2); j = ref1 <= ref2 ? ++o : --o) {
+          if (indices[i] > indices[j]) {
+            c += 1;
+          }
         }
       }
       return (-1) ** c;
@@ -486,7 +499,7 @@ sph_ga = (function() {
           id_b_n = id_b & this.id_null;
           indices_b = this.id_bit_indices(id_b);
           if (id_a_n || id_b_n) {
-            sign = this.sign(indices_a, indices_b);
+            sign = this.count_sorted_inversions(indices_a, indices_b);
             this.for_each_combination(indices_b, indices_a.length, (indices_c) => {
               var i, id_c, p, ref;
               m = 1;
@@ -503,7 +516,7 @@ sph_ga = (function() {
             id_c = id_a_e ^ id_b_e;
             indices_c = this.id_bit_indices(id_c);
             if (m = this.ip_metric(indices_c)) {
-              sign = this.sign(indices_a, indices_c);
+              sign = this.count_sorted_inversions(indices_a, indices_c);
               this.coeffs_add(coeffs, id_c, coeff_a * coeff_b * sign * m, grade_b - grade_a);
             }
           }
@@ -513,33 +526,72 @@ sph_ga = (function() {
     }
 
     ep(a, b) {
-      var coeff_a, coeff_b, coeffs, grade_a, grade_b, id_a, id_b, indices_a, l, len, len1, len_a, o, sign;
+      var coeff_a, coeff_b, coeffs, grade_a, grade_b, id, id_a, id_b, indices_a, l, len, len1, o, sign;
       coeffs = {};
       for (l = 0, len = a.length; l < len; l++) {
         [id_a, coeff_a, grade_a] = a[l];
         indices_a = this.id_bit_indices(id_a);
-        len_a = indices_a.length;
         for (o = 0, len1 = b.length; o < len1; o++) {
           [id_b, coeff_b, grade_b] = b[o];
-          if (!(id_a & id_b)) {
-            if (!grade_a) {
-              if (grade_b) {
-                this.coeffs_add(coeffs, id_b, coeff_a * coeff_b, grade_b);
-              }
-            } else if (!grade_b) {
-              this.coeffs_add(coeffs, id_a, coeff_a * coeff_b, grade_a);
-            } else {
-              sign = this.sign(indices_a, this.id_bit_indices(id_b));
-              this.coeffs_add(coeffs, id_a | id_b, sign * coeff_a * coeff_b, grade_a + grade_b);
-            }
+          if (!(!(id_a & id_b))) {
+            continue;
           }
+          id = id_a | id_b;
+          if (!id) {
+            continue;
+          }
+          sign = id_b ? this.count_sorted_inversions(indices_a, this.id_bit_indices(id_b)) : 1;
+          this.coeffs_add(coeffs, id, sign * coeff_a * coeff_b, grade_a + grade_b);
         }
       }
       return this.coeffs_to_mv(coeffs);
     }
 
     gp(a, b) {
-      return this.s(0);
+      var changed, coeff, coeff_a, coeff_b, coeffs, factor, grade_a, grade_b, i, id_a, id_b, id_c, indices_a, indices_ab, indices_c, j, l, len, len1, m, o, p, q, ref, ref1, ref2, sign;
+      coeffs = {};
+      for (l = 0, len = a.length; l < len; l++) {
+        [id_a, coeff_a, grade_a] = a[l];
+        indices_a = this.id_bit_indices(id_a);
+        for (o = 0, len1 = b.length; o < len1; o++) {
+          [id_b, coeff_b, grade_b] = b[o];
+          if (!(grade_a || grade_b)) {
+            this.coeffs_add(coeffs, 0, coeff_a * coeff_b, 0);
+            continue;
+          }
+          indices_ab = indices_a.concat(this.id_bit_indices(id_b));
+          indices_c = this.id_bit_indices(id_a | id_b);
+          sign = this.count_inversions(indices_ab);
+          coeff = coeff_a * coeff_b * sign;
+          factor = 1;
+          changed = true;
+          while (changed) {
+            changed = false;
+            for (i = p = 0, ref = indices_c.length; (0 <= ref ? p < ref : p > ref); i = 0 <= ref ? ++p : --p) {
+              for (j = q = ref1 = i + 1, ref2 = indices_c.length; (ref1 <= ref2 ? q < ref2 : q > ref2); j = ref1 <= ref2 ? ++q : --q) {
+                m = this.metric[indices_c[i]][indices_c[j]];
+                if (m !== 0) {
+                  factor *= m;
+                  indices_c.splice(j, 1);
+                  indices_c.splice(i, 1);
+                  changed = true;
+                  break;
+                }
+              }
+              if (changed) {
+                break;
+              }
+            }
+          }
+          coeff *= factor;
+          if (coeff === 0) {
+            continue;
+          }
+          id_c = this.id_from_bit_indices(indices_c);
+          this.coeffs_add(coeffs, id_c, coeff, grade_a + grade_b);
+        }
+      }
+      return this.coeffs_to_mv(coeffs);
     }
 
     combine(a, b, scalar = 1) {

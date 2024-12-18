@@ -174,7 +174,7 @@ class sph_ga
       generate prefix, rest, k
     generate [], array, n
 
-  sign: (a, b) ->  # count sorted inversions
+  count_sorted_inversions: (a, b) ->
     c = 0
     i = 0
     j = 0
@@ -184,6 +184,13 @@ class sph_ga
       else
         c += a.length - i
         j += 1
+    (-1) ** c
+
+  count_inversions: (indices) ->
+    c = 0
+    for i in [0...indices.length]
+      for j in [(i + 1)...indices.length]
+        c += 1 if indices[i] > indices[j]
     (-1) ** c
 
   ip: (a, b) ->
@@ -205,7 +212,7 @@ class sph_ga
         id_b_n = id_b & @id_null
         indices_b = @id_bit_indices id_b
         if id_a_n || id_b_n
-          sign = @sign indices_a, indices_b
+          sign = @count_sorted_inversions indices_a, indices_b
           @for_each_combination indices_b, indices_a.length, (indices_c) =>
             m = 1
             m *= @metric[indices_a[i]][indices_c[i]] for i in [0...indices_a.length]
@@ -216,7 +223,7 @@ class sph_ga
           id_c = id_a_e ^ id_b_e
           indices_c = @id_bit_indices id_c
           if m = @ip_metric indices_c
-            sign = @sign indices_a, indices_c
+            sign = @count_sorted_inversions indices_a, indices_c
             @coeffs_add coeffs, id_c, coeff_a * coeff_b * sign * m, grade_b - grade_a
     @coeffs_to_mv coeffs
 
@@ -224,18 +231,44 @@ class sph_ga
     coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
-      len_a = indices_a.length
       for [id_b, coeff_b, grade_b] in b when !(id_a & id_b)
-        if !grade_a
-          if grade_b then @coeffs_add coeffs, id_b, coeff_a * coeff_b, grade_b
-        else if !grade_b
-          @coeffs_add coeffs, id_a, coeff_a * coeff_b, grade_a
-        else
-          sign = @sign indices_a, @id_bit_indices id_b
-          @coeffs_add coeffs, id_a | id_b, sign * coeff_a * coeff_b, grade_a + grade_b
+        id = id_a | id_b
+        continue unless id
+        sign = if id_b then @count_sorted_inversions indices_a, @id_bit_indices id_b else 1
+        @coeffs_add coeffs, id, sign * coeff_a * coeff_b, grade_a + grade_b
     @coeffs_to_mv coeffs
 
-  gp: (a, b) -> @s 0
+  gp: (a, b) ->
+    coeffs = {}
+    for [id_a, coeff_a, grade_a] in a
+      indices_a = @id_bit_indices id_a
+      for [id_b, coeff_b, grade_b] in b
+        unless grade_a or grade_b
+          @coeffs_add coeffs, 0, coeff_a * coeff_b, 0
+          continue
+        indices_ab = indices_a.concat @id_bit_indices id_b
+        indices_c = @id_bit_indices id_a | id_b
+        sign = @count_inversions indices_ab
+        coeff = coeff_a * coeff_b * sign
+        factor = 1
+        changed = true
+        while changed
+          changed = false
+          for i in [0...indices_c.length]
+            for j in [(i + 1)...indices_c.length]
+              m = @metric[indices_c[i]][indices_c[j]]
+              if m != 0
+                factor *= m
+                indices_c.splice j, 1
+                indices_c.splice i, 1
+                changed = true
+                break
+            break if changed
+        coeff *= factor
+        continue if coeff == 0
+        id_c = @id_from_bit_indices indices_c
+        @coeffs_add coeffs, id_c, coeff, grade_a + grade_b
+    @coeffs_to_mv coeffs
 
   combine: (a, b, scalar = 1) ->
     coeffs = {}
