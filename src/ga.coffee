@@ -30,17 +30,17 @@ class sph_ga
         return 1 if !indices.length
         @determinant((@metric[i][j] for j in indices) for i in indices)
     if @is_conformal
-      @eo_bit_index = @n - 2
-      @ei_bit_index = @n - 1
-      @eo_id = 1 << @eo_bit_index
-      @ei_id = 1 << @ei_bit_index
-      @eo_index = @eo_bit_index + 1
-      @ei_index = @ei_bit_index + 1
-      @eo = (coeff) -> [[@eo_id, coeff, 1]]
-      @ei = (coeff) -> [[@ei_id, coeff, 1]]
+      @no_bit_index = @n - 2
+      @ni_bit_index = @n - 1
+      @no_id = 1 << @eo_bit_index
+      @ni_id = 1 << @ei_bit_index
+      @no_index = @no_bit_index + 1
+      @ni_index = @ni_bit_index + 1
+      @no = (coeff) -> [[@no_id, coeff, 1]]
+      @ni = (coeff) -> [[@ni_id, coeff, 1]]
       point = (euclidean_coeffs) ->
-        ei_coeff = 0.5 * @array_sum(@array_product(euclidean_coeffs))
-        @vector [0].concat(euclidean_coeffs).concat([1, ei_coeff])
+        ni_coeff = 0.5 * @array_sum(@array_product(euclidean_coeffs))
+        @vector [0].concat(euclidean_coeffs).concat([1, ni_coeff])
 
   coeffs_add: (coeffs, id, coeff, grade) -> if coeffs[id]? then coeffs[id][0] += coeff else coeffs[id] = [coeff, grade]
   array_product: (a) -> a.reduce ((b, a) -> a * b), 1
@@ -164,17 +164,17 @@ class sph_ga
     else @determinant_generic matrix, n
 
   for_each_combination: (array, n, f) ->
-    generate = (prefix, rest, k) ->
+    generate = (prefix, rest, k, i) ->
       if k == 0
-        f prefix
-        return
-      return if rest.length == 0
+        f prefix, i
+        return i + 1
+      return i if rest.length == 0
       [first, rest...] = rest
-      generate prefix.concat([first]), rest, k - 1
-      generate prefix, rest, k
-    generate [], array, n
+      i = generate prefix.concat([first]), rest, k - 1, i
+      generate prefix, rest, k, i
+    generate [], array, n, 0
 
-  sign: (a, b) ->  # count sorted inversions
+  sign_sorted: (a, b) ->
     c = 0
     i = 0
     j = 0
@@ -186,11 +186,18 @@ class sph_ga
         j += 1
     (-1) ** c
 
+  sign: (indices) ->
+    c = 0
+    for i in [0...indices.length]
+      for j in [(i + 1)...indices.length]
+        c += 1 if indices[i] > indices[j]
+    (-1) ** c
+
   ip: (a, b) ->
     coeffs = {}
     if 1 == a.length && !a[0][0]
-      if 1 == b.length && !b[0][0] then return @null_scalar
-      else return ([id, coeff * a[0][1], grade] for [id, coeff, grade] in b)
+      if 1 == b.length && !b[0][0] then return [[0, a[0][1] * b[0][1], 0]]
+      else return @null_scalar
     else if 1 == b.length && !b[0][0] then return @null_scalar
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
@@ -205,8 +212,8 @@ class sph_ga
         id_b_n = id_b & @id_null
         indices_b = @id_bit_indices id_b
         if id_a_n || id_b_n
-          sign = @sign indices_a, indices_b
-          @for_each_combination indices_b, indices_a.length, (indices_c) =>
+          @for_each_combination indices_b, indices_a.length, (indices_c, j) =>
+            sign = (-1) ** j
             m = 1
             m *= @metric[indices_a[i]][indices_c[i]] for i in [0...indices_a.length]
             return unless m
@@ -216,7 +223,7 @@ class sph_ga
           id_c = id_a_e ^ id_b_e
           indices_c = @id_bit_indices id_c
           if m = @ip_metric indices_c
-            sign = @sign indices_a, indices_c
+            sign = @sign_sorted indices_a, indices_c
             @coeffs_add coeffs, id_c, coeff_a * coeff_b * sign * m, grade_b - grade_a
     @coeffs_to_mv coeffs
 
@@ -224,18 +231,63 @@ class sph_ga
     coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
-      len_a = indices_a.length
       for [id_b, coeff_b, grade_b] in b when !(id_a & id_b)
-        if !grade_a
-          if grade_b then @coeffs_add coeffs, id_b, coeff_a * coeff_b, grade_b
-        else if !grade_b
-          @coeffs_add coeffs, id_a, coeff_a * coeff_b, grade_a
-        else
-          sign = @sign indices_a, @id_bit_indices id_b
-          @coeffs_add coeffs, id_a | id_b, sign * coeff_a * coeff_b, grade_a + grade_b
+        id = id_a | id_b
+        continue unless id
+        sign = if id_b then @sign_sorted indices_a, @id_bit_indices id_b else 1
+        @coeffs_add coeffs, id, sign * coeff_a * coeff_b, grade_a + grade_b
     @coeffs_to_mv coeffs
 
-  gp: (a, b) -> @s 0
+  gp: (a, b) ->
+    coeffs = {}
+    for [id_a, coeff_a, grade_a] in a
+      indices_a = @id_bit_indices id_a
+      for [id_b, coeff_b, grade_b] in b
+        indices_ab = indices_a.concat @id_bit_indices id_b
+        indices_c = indices_ab.slice().sort()
+        sign = @sign indices_ab
+        coeff = coeff_a * coeff_b
+        factor = 1
+        changed = true
+        while changed  # distinct-pair merging
+          changed = false
+          i = 0
+          while i < indices_c.length
+            j = i + 1
+            while j < indices_c.length
+              if indices_c[i] != indices_c[j]
+                m = @metric[indices_c[i]][indices_c[j]]
+                if m != 0
+                  factor *= m
+                  indices_c.splice j, 1
+                  indices_c.splice i, 1
+                  changed = true
+                  break
+              j += 1
+            break if changed
+            i += 1 unless changed
+        changed = true
+        while changed  # identical-pair merging
+          changed = false
+          i = 0
+          while i < indices_c.length
+            j = i + 1
+            while j < indices_c.length
+              if indices_c[i] is indices_c[j]
+                m = @metric[indices_c[i]][indices_c[i]]
+                factor *= m
+                indices_c.splice j, 1
+                indices_c.splice i, 1
+                changed = true
+                break
+              j += 1
+            break if changed
+            i += 1 unless changed
+        coeff *= factor * sign
+        continue unless coeff
+        id_c = @id_from_bit_indices indices_c
+        @coeffs_add coeffs, id_c, coeff, grade_a + grade_b
+    @coeffs_to_mv coeffs
 
   combine: (a, b, scalar = 1) ->
     coeffs = {}
@@ -243,7 +295,8 @@ class sph_ga
     for [id, coeff, grade] in b
       if coeffs[id]? then coeffs[id][0] += coeff * scalar
       else coeffs[id] = [coeff * scalar, grade]
-    [parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0
+    c = ([parseInt(id), coeff, grade] for id, [coeff, grade] of coeffs when coeff != 0)
+    if c.length then c else @null_scalar
 
   inverse: (a) ->
     a_reverse = @reverse a
@@ -276,8 +329,8 @@ class sph_ga
     indices = if right_numbers? then right_numbers else []
     if letters?
       switch letters
-        when "eo" then id = c3.eo_id
-        when "ei" then id = c3.ei_id
+        when "no" then id = c3.no_id
+        when "ni" then id = c3.ni_id
         else id = @id_from_indices right_numbers
     else id = 0
     [id, coeff, @id_grade id]

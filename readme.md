@@ -1,19 +1,19 @@
 # sph-ga
 this is a javascript library for fundamental calculations of euclidean and conformal geometric algebras. custom algebras are possible.
 
-the focus of this implementation is on compactness and flexibility (functional, with basic data structures to allow easy abstraction) as well as compactness and generality (straightforward and no limitations).
+the focus of this implementation is on flexibility (functional with basic data structures and loose coupling to allow easy abstraction) as well as compactness and generality (straightforward and no limitations).
 
-the collection of automated test might also be useful for testing other geometric algebra libraries.
+the collection of automated tests might also be useful for testing other geometric algebra libraries.
 
 ## status
-*work in progress*: still in development.
+*work in progress*: still in development. currently in the last stage: testing the geometric product, optimizations, and cleanup.
 
 # license
 lgpl3+
 
 # usage
 compiled/ga.js contains the javascript version.
-use with node.js via `require("./ga.js")` or include the code in html using `<script type="text/javascript" src="ga.js"></script>`.
+use with node.js via `require("./sph_ga.js")` or include the code in html using `<script type="text/javascript" src="sph_ga.js"></script>`.
 
 # usage
 the examples are using the [coffeescript](https://coffeescript.org/) javascript syntax.
@@ -23,10 +23,10 @@ the examples are using the [coffeescript](https://coffeescript.org/) javascript 
 r3 = new sph_ga [1, 1, 1]
 ~~~
 
-this example supplies an euclidean (diagonal) metric. for more options, see the section "customization" below.
+this example supplies an euclidean metric. for more options, see the section "customization" below.
 
 ## creating vectors
-all types are represented as multivector objects.
+all these types are represented as multivector objects.
 
 `s(number)` creates a scalar.
 ~~~
@@ -51,6 +51,8 @@ a = r3.mv [
   [[2, 3], 4]  # 4 * e23
 ]
 ~~~
+
+strings can also be used: `r3.mv_from_string "1 + e2 + 2e1_3"`. this is only for multivector creation and does not support other calculations.
 
 ## operations
 ~~~
@@ -184,28 +186,26 @@ multivector: array:(blade ...)
 ~~~
 
 # conformal geometric algebra
-sph_ga has special features for cga.
-it uses a degenerate split-signature metric with two off-diagonal negative terms by default.
+sph_ga has special features for cga. when the default conformal mode is enabled for a space, it automatically adds two dimensions and uses the conformal metric.
 
 ## usage
 ~~~
-# initialize the conformal geometric algebra R4,1.
 # only the euclidean part of the metric has to be specified.
 c3 = new sph_ga [1, 1, 1], conformal: true
 
-# create basis vectors e1, e2, e3, e4, and e5
+# create example basis vectors e1, e2, e3, e4, and e5
 e1 = c3.basis 1
 e2 = c3.basis 2
 e3 = c3.basis 3
-eo = c3.eo 1
-ei = c3.ei 1
+n0 = c3.no 1  # we use n0 in coffeescript because "no" is not an allowed identifier
+ni = c3.ni 1
 
 # creating a conformal point. p = e1 + e2 + e3 + 0.5 * (e4 + e5)
 point = c3.add(
   c3.add(e1, e2),
   c3.add(e3, c3.mv [
-    [[c3.eo_index], 0.5],  # 0.5 * e4
-    [[c3.ei_index], 0.5]   # 0.5 * e5]))
+    [[c3.no_index], 0.5],  # 0.5 * e4
+    [[c3.ni_index], 0.5]   # 0.5 * e5]))
 
 # reflecting a point across a plane defined by a normal vector n.
 # assume n is a unit vector in the conformal space
@@ -218,18 +218,18 @@ reflected_point = c3.gp c3.gp(c3.reverse(n), point), n
 functions
 ~~~
 # create a basis vector for the origin. also known as "e0" and "e+"
-eo :: coefficient -> multivector
+no :: coefficient -> multivector
 
 # create a basis vector for infinity. also known as "e∞"" and "e-"
-ei :: coefficient -> multivector
+ni :: coefficient -> multivector
 ~~~
 
 space properties
 ~~~
-eo_index
-ei_index
-eo_id
-ei_id
+no_index
+ni_index
+no_id
+ni_id
 ~~~
 
 these should better use the name `no` and `ni`, but coffeescript does not allow `no` as a variable name, which might be inconvenient.
@@ -290,6 +290,13 @@ integer        = digit , { digit } ;
 digit          = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 letter         = "a" | "b" | "c" | "d" | ... | "z" ;
 ~~~
+
+# excluded
+what this library will not provide:
+* operator overloading
+* code generation
+* string interpretation for complex operations
+* graph functions
 
 # ideas
 * the library could easily be ported to c
