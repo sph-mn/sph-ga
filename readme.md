@@ -8,9 +8,6 @@ the collection of automated tests may also be useful for testing other geometric
 ## status
 fundamentals have been implemented and tested. currently being refined through use in an initial application. users are encouraged to try the library and report any issues.
 
-# license
-lgpl3+
-
 # usage
 compiled/sph_ga.js contains the javascript version.
 use with node.js via `require("./sph_ga.js")` or include the code in html using `<script type="text/javascript" src="sph_ga.js"></script>`.
@@ -300,6 +297,9 @@ what this library will not provide:
 * code generation
 * string notation for complex operations
 * graphical functions
+
+# license
+lgpl3+
 
 # possible enhancements
 * simplify multivector component access
