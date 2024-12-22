@@ -19,10 +19,10 @@ class sph_ga
       unless @is_diagonal
         throw new Error "only diagonal metrics are allowed with \"conformal: true\". use a custom metric instead"
     if @null_vectors
-      @null_vector_start = @n - @null_vectors
-      @id_null = @id_from_indices [(@null_vector_start + 1)..@n]
-    @metric = metric
+      null_vector_start = @n - @null_vectors
+      @id_null = @id_from_indices [(null_vector_start + 1)..@n]
     @pseudoscalar_id = (1 << @n) - 1
+    @metric = metric
     if @is_diagonal
       @ip_metric = (indices) -> @array_product(@metric[i][i] for i in indices)
     else
@@ -42,35 +42,35 @@ class sph_ga
         ni_coeff = 0.5 * @array_sum(@array_product(euclidean_coeffs))
         @vector [0].concat(euclidean_coeffs).concat([1, ni_coeff])
 
-  coeffs_add: (coeffs, id, coeff, grade) -> if coeffs[id]? then coeffs[id][0] += coeff else coeffs[id] = [coeff, grade]
+  add: (a, b) -> @combine a, b, 1
+  array_diff: (a, b) -> a.filter (c) -> !(c in b)
   array_product: (a) -> a.reduce ((b, a) -> a * b), 1
   array_sum: (a) -> a.reduce ((b, a) -> a + b), 0
-  array_diff: (a, b) -> a.filter (c) -> !(c in b)
   basis_blade: (i, coeff) -> if i then [1 << (i - 1), coeff, 1] else [0, coeff, 0]
   basis: (i, coeff) -> [@basis_blade(i, (if coeff? then coeff else 1))]
-  vector: (coeffs) -> @basis_blade i, a for a, i in coeffs when a
-  s: (coeff) -> [[0, coeff, 0]]
-  id_from_indices: (indices) -> indices.reduce ((id, i) -> id |= 1 << (i - 1)), 0
-  id_from_bit_indices: (indices) -> indices.reduce ((id, i) -> id |= 1 << i), 0
-  mv: (terms) -> @blade indices, coeff for [indices, coeff] in terms
-  map_grade_factor: (a, f) -> ([id, coeff * f(grade), grade] for [id, coeff, grade] in a)
-  involute: (a) -> @map_grade_factor a, (grade) -> (-1) ** grade
-  scale: (mv, a) -> ([id, coeff * a, grade] for [id, coeff, grade] in mv)
-  negate: (a) -> @scale a, -1
-  conjugate: (a) -> @map_grade_factor a, (grade) -> (-1) ** ((grade * (grade + 1)) >> 1)
-  reverse: (a) -> @map_grade_factor a, (grade) -> (-1) ** ((grade * (grade - 1)) >> 1)
-  add: (a, b) -> @combine a, b, 1
-  subtract: (a, b) -> @combine a, b, -1
-  sp: (a, b) -> @gp @gp(a, b), @inverse(a)
-  pseudoscalar: -> [@blade([1..@n], 1)]
-  grade: (a) -> a[a.length - 1][2]
-  blade_id: (a) -> a[0]
   blade_coeff: (a) -> a[1]
   blade_grade: (a) -> a[2]
+  blade_id: (a) -> a[0]
+  coeffs_add: (coeffs, id, coeff, grade) -> if coeffs[id]? then coeffs[id][0] += coeff else coeffs[id] = [coeff, grade]
+  conjugate: (a) -> @map_grade_factor a, (grade) -> (-1) ** ((grade * (grade + 1)) >> 1)
   get: (a, id) -> for b in a then return b if id == b[0]
-  id_grade_cache: {}
+  grade: (a) -> a[a.length - 1][2]
   id_bit_indices_cache: {}
+  id_from_bit_indices: (indices) -> indices.reduce ((id, i) -> id |= 1 << i), 0
+  id_from_indices: (indices) -> indices.reduce ((id, i) -> id |= 1 << (i - 1)), 0
+  id_grade_cache: {}
+  involute: (a) -> @map_grade_factor a, (grade) -> (-1) ** grade
+  map_grade_factor: (a, f) -> ([id, coeff * f(grade), grade] for [id, coeff, grade] in a)
+  mv: (terms) -> @blade indices, coeff for [indices, coeff] in terms
+  negate: (a) -> @scale a, -1
   null_scalar: [[0, 0, 0]]
+  pseudoscalar: -> [@blade([1..@n], 1)]
+  reverse: (a) -> @map_grade_factor a, (grade) -> (-1) ** ((grade * (grade - 1)) >> 1)
+  scale: (mv, a) -> ([id, coeff * a, grade] for [id, coeff, grade] in mv)
+  s: (coeff) -> [[0, coeff, 0]]
+  sp: (a, b) -> @gp @gp(a, b), @inverse(a)
+  subtract: (a, b) -> @combine a, b, -1
+  vector: (coeffs) -> @basis_blade i, a for a, i in coeffs when a
 
   blade: (indices, coeff) ->
     if indices[0] then [@id_from_indices(indices), coeff, indices.length]

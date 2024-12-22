@@ -1,18 +1,18 @@
 # sph-ga
-this is a javascript library for fundamental calculations of euclidean and conformal geometric algebras. custom algebras are possible.
+this is a javascript library for fundamental calculations in euclidean and conformal geometric algebras. custom algebras are supported.
 
-the focus of this implementation is on flexibility (functional with basic data structures and loose coupling to allow easy abstraction) as well as compactness and generality (straightforward and no limitations).
+the focus of this implementation is on flexibility (functional with basic data structures and loose coupling for easy abstraction) as well as compactness and generality (straightforward with no limitations).
 
-the collection of automated tests might also be useful for testing other geometric algebra libraries.
+the collection of automated tests may also be useful for testing other geometric algebra libraries.
 
 ## status
-*work in progress*: still in development. currently in the last stage: testing the geometric product, optimizations, and cleanup.
+fundamentals have been implemented and tested. currently being refined through use in an initial application. users are encouraged to try the library and report any issues.
 
 # license
 lgpl3+
 
 # usage
-compiled/ga.js contains the javascript version.
+compiled/sph_ga.js contains the javascript version.
 use with node.js via `require("./sph_ga.js")` or include the code in html using `<script type="text/javascript" src="sph_ga.js"></script>`.
 
 # usage
@@ -60,8 +60,8 @@ e1 = r3.basis 1
 e2 = r3.basis 2
 e3 = r3.basis 3
 
-geometric_product = r3.gp e1, e2
 exterior_product = r3.ep e1, e2
+geometric_product = r3.gp e1, e2
 ~~~
 
 ~~~
@@ -121,14 +121,14 @@ s :: coefficient -> multivector
 # get a basis vector of index. 1 -> e1, 2 -> e2, ..., n -> en
 basis :: basis_index -> multivector
 
-# a multivector of 1-blades, for instance s * e1, s * e2, ..., s * en
+# a multivector of the scalar and one or more 1-blades.
 # adds as many basis blades in order as specified.
 vector :: (coefficient ...) -> multivector
 
-# create a multivector by specifying multiple blades like for
+# create a multivector by specifying multiple blade terms
 mv :: (((basis_index ...) coefficient) ...) -> multivector
 
-# calculates the inner product using the left contraction rule.
+# calculates the left contraction inner product.
 # the grade of the first argument must be less than or equal to the grade of the second argument
 ip :: multivector multivector -> multivector
 
@@ -159,6 +159,7 @@ pseudoscalar :: -> multivector
 inverse :: multivector -> multivector
 grade :: multivector -> integer
 id_from_indices :: (basis_index ...) -> id
+id_indices :: (id) -> (basis_index ...)
 mv_to_string :: multivector -> string
 mv_from_string :: string -> multivector
 
@@ -235,14 +236,13 @@ ni_id
 these should better use the name `no` and `ni`, but coffeescript does not allow `no` as a variable name, which might be inconvenient.
 
 # customization
-
 ## metric tensor
 the metric array passed in the options defines the signature of the space. each element represents the square of a basis vector combination:
 * `1` for spacelike dimensions
 * `-1` for timelike dimensions
 * `0` for null dimensions
 
-other values, eg for non-orthogonal metrics, are possible.
+other values, eg for non-diagonal metrics, are possible. metrics must be symmetric.
 diagonal metrics can be configured using flat arrays. for example, [1, 1, 1].
 custom tensors can be provided as an "n * n" array. example for five dimensions:
 ~~~
@@ -291,13 +291,17 @@ digit          = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
 letter         = "a" | "b" | "c" | "d" | ... | "z" ;
 ~~~
 
+# tests
+most of the test cases are systematically generated. run via `./exe/tests`. the code for the test cases, data generator, and runner, is located in src/test.coffee.
+
 # excluded
 what this library will not provide:
 * operator overloading
 * code generation
-* string interpretation for complex operations
-* graph functions
+* string notation for complex operations
+* graphical functions
 
-# ideas
+# possible enhancements
+* simplify multivector component access
+* performance optimizations
 * the library could easily be ported to c
-* more performance optimizations. possibly decompose computations into lower-dimensional subspaces

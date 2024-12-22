@@ -7,7 +7,7 @@ sph_ga = (function() {
 
   class sph_ga {
     constructor(metric, options = {}) {
-      var point, ref, ref1;
+      var null_vector_start, point, ref, ref1;
       this.n = metric.length;
       this.is_conformal = !!options.conformal;
       if (!Array.isArray(metric[0])) {
@@ -34,15 +34,15 @@ sph_ga = (function() {
         }
       }
       if (this.null_vectors) {
-        this.null_vector_start = this.n - this.null_vectors;
+        null_vector_start = this.n - this.null_vectors;
         this.id_null = this.id_from_indices((function() {
           var results = [];
-          for (var l = ref = this.null_vector_start + 1, ref1 = this.n; ref <= ref1 ? l <= ref1 : l >= ref1; ref <= ref1 ? l++ : l--){ results.push(l); }
+          for (var l = ref = null_vector_start + 1, ref1 = this.n; ref <= ref1 ? l <= ref1 : l >= ref1; ref <= ref1 ? l++ : l--){ results.push(l); }
           return results;
         }).apply(this));
       }
-      this.metric = metric;
       this.pseudoscalar_id = (1 << this.n) - 1;
+      this.metric = metric;
       if (this.is_diagonal) {
         this.ip_metric = function(indices) {
           var i;
@@ -102,12 +102,14 @@ sph_ga = (function() {
       }
     }
 
-    coeffs_add(coeffs, id, coeff, grade) {
-      if (coeffs[id] != null) {
-        return coeffs[id][0] += coeff;
-      } else {
-        return coeffs[id] = [coeff, grade];
-      }
+    add(a, b) {
+      return this.combine(a, b, 1);
+    }
+
+    array_diff(a, b) {
+      return a.filter(function(c) {
+        return !(indexOf.call(b, c) >= 0);
+      });
     }
 
     array_product(a) {
@@ -122,12 +124,6 @@ sph_ga = (function() {
       }), 0);
     }
 
-    array_diff(a, b) {
-      return a.filter(function(c) {
-        return !(indexOf.call(b, c) >= 0);
-      });
-    }
-
     basis_blade(i, coeff) {
       if (i) {
         return [1 << (i - 1), coeff, 1];
@@ -140,26 +136,44 @@ sph_ga = (function() {
       return [this.basis_blade(i, (coeff != null ? coeff : 1))];
     }
 
-    vector(coeffs) {
-      var a, i, l, len, results;
-      results = [];
-      for (i = l = 0, len = coeffs.length; l < len; i = ++l) {
-        a = coeffs[i];
-        if (a) {
-          results.push(this.basis_blade(i, a));
+    blade_coeff(a) {
+      return a[1];
+    }
+
+    blade_grade(a) {
+      return a[2];
+    }
+
+    blade_id(a) {
+      return a[0];
+    }
+
+    coeffs_add(coeffs, id, coeff, grade) {
+      if (coeffs[id] != null) {
+        return coeffs[id][0] += coeff;
+      } else {
+        return coeffs[id] = [coeff, grade];
+      }
+    }
+
+    conjugate(a) {
+      return this.map_grade_factor(a, function(grade) {
+        return (-1) ** ((grade * (grade + 1)) >> 1);
+      });
+    }
+
+    get(a, id) {
+      var b, l, len;
+      for (l = 0, len = a.length; l < len; l++) {
+        b = a[l];
+        if (id === b[0]) {
+          return b;
         }
       }
-      return results;
     }
 
-    s(coeff) {
-      return [[0, coeff, 0]];
-    }
-
-    id_from_indices(indices) {
-      return indices.reduce((function(id, i) {
-        return id |= 1 << (i - 1);
-      }), 0);
+    grade(a) {
+      return a[a.length - 1][2];
     }
 
     id_from_bit_indices(indices) {
@@ -168,14 +182,16 @@ sph_ga = (function() {
       }), 0);
     }
 
-    mv(terms) {
-      var coeff, indices, l, len, results;
-      results = [];
-      for (l = 0, len = terms.length; l < len; l++) {
-        [indices, coeff] = terms[l];
-        results.push(this.blade(indices, coeff));
-      }
-      return results;
+    id_from_indices(indices) {
+      return indices.reduce((function(id, i) {
+        return id |= 1 << (i - 1);
+      }), 0);
+    }
+
+    involute(a) {
+      return this.map_grade_factor(a, function(grade) {
+        return (-1) ** grade;
+      });
     }
 
     map_grade_factor(a, f) {
@@ -188,48 +204,18 @@ sph_ga = (function() {
       return results;
     }
 
-    involute(a) {
-      return this.map_grade_factor(a, function(grade) {
-        return (-1) ** grade;
-      });
-    }
-
-    scale(mv, a) {
-      var coeff, grade, id, l, len, results;
+    mv(terms) {
+      var coeff, indices, l, len, results;
       results = [];
-      for (l = 0, len = mv.length; l < len; l++) {
-        [id, coeff, grade] = mv[l];
-        results.push([id, coeff * a, grade]);
+      for (l = 0, len = terms.length; l < len; l++) {
+        [indices, coeff] = terms[l];
+        results.push(this.blade(indices, coeff));
       }
       return results;
     }
 
     negate(a) {
       return this.scale(a, -1);
-    }
-
-    conjugate(a) {
-      return this.map_grade_factor(a, function(grade) {
-        return (-1) ** ((grade * (grade + 1)) >> 1);
-      });
-    }
-
-    reverse(a) {
-      return this.map_grade_factor(a, function(grade) {
-        return (-1) ** ((grade * (grade - 1)) >> 1);
-      });
-    }
-
-    add(a, b) {
-      return this.combine(a, b, 1);
-    }
-
-    subtract(a, b) {
-      return this.combine(a, b, -1);
-    }
-
-    sp(a, b) {
-      return this.gp(this.gp(a, b), this.inverse(a));
     }
 
     pseudoscalar() {
@@ -244,30 +230,44 @@ sph_ga = (function() {
       ];
     }
 
-    grade(a) {
-      return a[a.length - 1][2];
+    reverse(a) {
+      return this.map_grade_factor(a, function(grade) {
+        return (-1) ** ((grade * (grade - 1)) >> 1);
+      });
     }
 
-    blade_id(a) {
-      return a[0];
+    scale(mv, a) {
+      var coeff, grade, id, l, len, results;
+      results = [];
+      for (l = 0, len = mv.length; l < len; l++) {
+        [id, coeff, grade] = mv[l];
+        results.push([id, coeff * a, grade]);
+      }
+      return results;
     }
 
-    blade_coeff(a) {
-      return a[1];
+    s(coeff) {
+      return [[0, coeff, 0]];
     }
 
-    blade_grade(a) {
-      return a[2];
+    sp(a, b) {
+      return this.gp(this.gp(a, b), this.inverse(a));
     }
 
-    get(a, id) {
-      var b, l, len;
-      for (l = 0, len = a.length; l < len; l++) {
-        b = a[l];
-        if (id === b[0]) {
-          return b;
+    subtract(a, b) {
+      return this.combine(a, b, -1);
+    }
+
+    vector(coeffs) {
+      var a, i, l, len, results;
+      results = [];
+      for (i = l = 0, len = coeffs.length; l < len; i = ++l) {
+        a = coeffs[i];
+        if (a) {
+          results.push(this.basis_blade(i, a));
         }
       }
+      return results;
     }
 
     blade(indices, coeff) {
@@ -752,9 +752,9 @@ sph_ga = (function() {
 
   };
 
-  sph_ga.prototype.id_grade_cache = {};
-
   sph_ga.prototype.id_bit_indices_cache = {};
+
+  sph_ga.prototype.id_grade_cache = {};
 
   sph_ga.prototype.null_scalar = [[0, 0, 0]];
 

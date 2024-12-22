@@ -1,4 +1,4 @@
-sph_ga = require "./ga.coffee"
+sph_ga = require "./sph_ga.coffee"
 
 class test_runner_class
   # this class executes automated tests based on an array format.
@@ -87,7 +87,7 @@ class test_data_generator_class
     @blade_id_next = for a in @blade_ids
       b = {}
       for k, v of a
-        b[k] = @cycled_sequence @randomize v  # relative order will be equal if not randomized
+        b[k] = @cycled_sequence @randomize v  # randomize to vary relative order
       b
   cycled_sequence: (a) ->
     i = 0
@@ -104,8 +104,6 @@ class test_data_generator_class
     #   m: mixed
     #   an: any null
     #   a: any
-    #console.log JSON.stringify @blade_ids
-    #console.log JSON.stringify @blade_id_next
     id = null
     if overlap_id
       ids = @blade_ids[grade][type]
@@ -142,29 +140,6 @@ class test_data_generator_class
       previous
     return null if rest.length != (config.length - 1)
     [first].concat rest
-  display_combination_tests_ip: () ->
-    combinations = []
-    for [g1, t1] in [[0, "s"], [1, "e"]]
-      for [g2, t2] in [[0, "s"], [1, "e"]]
-        continue if "e" == t1 && t2 == t1
-        mv = @mv [[g1, t1, 0], [g2, t2, 0]]
-        combinations.push [[mv[0]], [mv[1]]]
-    config1 = [[[1], "e"], [[1, 2], "n"], [[2], "m"]]
-    config2 = [[[1, 2], "e"], [[1, 2], "n"], [[2, 3], "m"]]
-    for [grades1, t1] in config1
-      for g1 in grades1
-        for [grades2, t2] in config2
-          for g2 in grades2
-            for o in [0, 2]
-              mv = @mv [[g1, t1, 0], [g2, t2, o]]
-              continue unless mv
-              combinations.push [[mv[0]], [mv[1]]]
-    mv = @mv [[3, "m", 0], [1, "e", 1]]
-    combinations.push [[mv[0]], [mv[1]]]
-    combinations.push [@mv([[1, "a", 0], [1, "a", 0]]), @mv([[2, "a", 0], [3, "a", 0]])]
-    strings = for a in combinations
-      a = (@space.mv_to_string(@space.mv(b)) for b in a)
-      console.log @to_json a
   display_combination_tests: () ->
     ###
     we want something like this in any order:
@@ -205,7 +180,7 @@ class custom_test_runner_class extends test_runner_class
 
 c3 = new sph_ga [1, 1, 1], conformal: true
 
-# new test data is generated when needed.
+# uncomment to generate and display new test data.
 #gen = new test_data_generator_class c3
 #gen.display_combination_tests(); process.exit(0)
 
