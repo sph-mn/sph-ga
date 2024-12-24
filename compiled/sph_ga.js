@@ -7,7 +7,7 @@ sph_ga = (function() {
 
   class sph_ga {
     constructor(metric, options = {}) {
-      var null_vector_start, point, ref, ref1;
+      var null_vector_start, ref, ref1, rotation_axis_combinations;
       this.n = metric.length;
       this.is_conformal = !!options.conformal;
       if (!Array.isArray(metric[0])) {
@@ -94,9 +94,41 @@ sph_ga = (function() {
         this.ni = function(coeff) {
           return [[this.ni_id, coeff, 1]];
         };
-        point = function(euclidean_coeffs) {
-          var ni_coeff;
-          ni_coeff = 0.5 * this.array_sum(this.array_product(euclidean_coeffs));
+        rotation_axis_combinations = function(n) {
+          var combinations, i, j, l, o, ref2, ref3, ref4;
+          combinations = [];
+          for (i = l = 0, ref2 = n; (0 <= ref2 ? l < ref2 : l > ref2); i = 0 <= ref2 ? ++l : --l) {
+            for (j = o = ref3 = i + 1, ref4 = n; (ref3 <= ref4 ? o < ref4 : o > ref4); j = ref3 <= ref4 ? ++o : --o) {
+              combinations.push([i + 1, j + 1]);
+            }
+          }
+          return combinations;
+        };
+        this.rotation_axes = rotation_axis_combinations(this.n - 2);
+        this.rotor = function(coeffs) {
+          var a, first, i, rest;
+          [first, ...rest] = coeffs;
+          return this.mv([[[0], first]].concat((function() {
+            var l, len, results;
+            results = [];
+            for (i = l = 0, len = rest.length; l < len; i = ++l) {
+              a = rest[i];
+              results.push([this.rotation_axes[i], a]);
+            }
+            return results;
+          }).call(this)));
+        };
+        this.point = function(euclidean_coeffs) {
+          var a, ni_coeff;
+          ni_coeff = this.array_sum((function() {
+            var l, len, results;
+            results = [];
+            for (l = 0, len = euclidean_coeffs.length; l < len; l++) {
+              a = euclidean_coeffs[l];
+              results.push(a * a);
+            }
+            return results;
+          })()) / 2;
           return this.vector([0].concat(euclidean_coeffs).concat([1, ni_coeff]));
         };
       }

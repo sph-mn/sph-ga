@@ -184,30 +184,19 @@ multivector: array:(blade ...)
 ~~~
 
 # conformal geometric algebra
-sph_ga has special features for cga. when the default conformal mode is enabled for a space, it automatically adds two dimensions and uses the conformal metric.
+sph_ga has special features for cga. when the conformal option is set to true for a space, it automatically adds two dimensions and uses the conformal metric.
 
 ## usage
 ~~~
 # only the euclidean part of the metric has to be specified.
 c3 = new sph_ga [1, 1, 1], conformal: true
 
-# create example basis vectors e1, e2, e3, e4, and e5
-e1 = c3.basis 1
-e2 = c3.basis 2
-e3 = c3.basis 3
-n0 = c3.no 1  # we use n0 in coffeescript because "no" is not an allowed identifier
-ni = c3.ni 1
-
-# creating a conformal point. p = e1 + e2 + e3 + 0.5 * (e4 + e5)
-point = c3.add(
-  c3.add(e1, e2),
-  c3.add(e3, c3.mv [
-    [[c3.no_index], 0.5],  # 0.5 * e4
-    [[c3.ni_index], 0.5]   # 0.5 * e5]))
-
 # reflecting a point across a plane defined by a normal vector n.
 # assume n is a unit vector in the conformal space
+e1 = c3.basis 1
+e2 = c3.basis 2
 n = c3.add e1, e2
+point = c3.point 1, 2, 3
 # reflection formula: p' = -n * p * n
 reflected_point = c3.gp c3.gp(c3.reverse(n), point), n
 ~~~
@@ -220,6 +209,12 @@ no :: coefficient -> multivector
 
 # create a basis vector for infinity. also known as "e∞"" and "e-"
 ni :: coefficient -> multivector
+
+# create a conformal point. requires only the coefficients for the euclidean part
+point :: (coefficient ...) -> multivector
+
+# create a rotor. takes the coefficient for the scalar followed by the rotation axes
+rotor :: (coefficient ...) -> multivector
 ~~~
 
 space properties

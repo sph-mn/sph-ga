@@ -38,8 +38,18 @@ class sph_ga
       @ni_index = @ni_bit_index + 1
       @no = (coeff) -> [[@no_id, coeff, 1]]
       @ni = (coeff) -> [[@ni_id, coeff, 1]]
-      point = (euclidean_coeffs) ->
-        ni_coeff = 0.5 * @array_sum(@array_product(euclidean_coeffs))
+      rotation_axis_combinations = (n) ->
+        combinations = []
+        for i in [0...n]
+          for j in [i+1...n]
+            combinations.push([i + 1, j + 1])
+        combinations
+      @rotation_axes = rotation_axis_combinations @n - 2
+      @rotor = (coeffs) ->
+        [first, rest...] = coeffs
+        @mv [[[0], first]].concat([@rotation_axes[i], a] for a, i in rest)
+      @point = (euclidean_coeffs) ->
+        ni_coeff = @array_sum(a * a for a in euclidean_coeffs) / 2
         @vector [0].concat(euclidean_coeffs).concat([1, ni_coeff])
 
   add: (a, b) -> @combine a, b, 1
