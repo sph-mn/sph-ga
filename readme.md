@@ -30,7 +30,7 @@ all these types are represented as multivector objects.
 s1 = r3.s 1
 ~~~
 
-`basis(n, coefficient=1)` creates the basis vector with that index. index 0 is the scalar.
+`basis(n, scale=1)` creates the basis vector with that index.
 ~~~
 e3 = r3.basis 3
 ~~~
