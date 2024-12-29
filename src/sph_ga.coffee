@@ -185,6 +185,13 @@ class sph_ga
       generate prefix, rest, k, i
     generate [], array, n, 0
 
+  sign: (indices) ->
+    c = 0
+    for i in [0...indices.length]
+      for j in [(i + 1)...indices.length]
+        c += 1 if indices[i] > indices[j]
+    (-1) ** c
+
   sign_sorted: (a, b) ->
     c = 0
     i = 0
@@ -193,87 +200,76 @@ class sph_ga
       if a[i] <= b[j]
         i += 1
       else
-        c += a.length - i
         j += 1
     (-1) ** c
 
-  sign: (indices) ->
-    c = 0
-    for i in [0...indices.length]
-      for j in [(i + 1)...indices.length]
-        c += 1 if indices[i] > indices[j]
-    (-1) ** c
-
-  permutations: (a, start = 0) ->
-    results = []
-    permute = (a, start) ->
-      if start is a.length
-        results.push a.slice()
-        return
-      for i in [start..(a.length - 1)]
-        b = a[start]
-        a[start] = a[i]
-        a[i] = b
-        permute a, start + 1
-        b = a[start]
-        a[start] = a[i]
-        a[i] = b
-    permute a, start
-    return results
-
-  permutation_parity: (perm) ->
-    n = perm.length
-    count_inversions = 0
-    for i in [0..n-2]
-      for j in [i+1..n-1]
-        if perm[j] < perm[i]
-          count_inversions += 1
-    return if (count_inversions % 2) == 0 then 1 else -1
-
-  ip_metric_full: (indices_a, indices_b) ->
-    return 0 if indices_a.length != indices_b.length
-    total = 0
-    all_perms = @permutations indices_b
-    for perm in all_perms
-      sign = @permutation_parity perm
-      product = 1
-      for i in [0..perm.length-1]
-        val = @metric[indices_a[i]][perm[i]]
-        if val == 0
-          product = 0
-          break
-        product *= val
-      total += sign * product
-    return total
+  merge_indices: (a) ->
+    factor = 1
+    changed = true
+    while changed
+      changed = false
+      i = 0
+      while i < a.length
+        j = i + 1
+        while j < a.length
+          if a[i] != a[j]
+            m = @metric[a[i]][a[j]]
+            if m != 0
+              factor *= m
+              a.splice j, 1
+              a.splice i, 1
+              changed = true
+              break
+          j += 1
+        break if changed
+        i += 1 unless changed
+    changed = true
+    while changed
+      changed = false
+      i = 0
+      while i < a.length
+        j = i + 1
+        while j < a.length
+          if a[i] is a[j]
+            m = @metric[a[i]][a[i]]
+            factor *= m
+            a.splice j, 1
+            a.splice i, 1
+            changed = true
+            break
+          j += 1
+        break if changed
+        i += 1 unless changed
+    [a, factor]
 
   ip_one: (a, b) ->
     coeffs = {}
-    if 1 == a.length && !a[0][0]
-      if 1 == b.length && !b[0][0] then return [[0, a[0][1] * b[0][1], 0]]
-      else return @null_scalar
-    else if 1 == b.length && !b[0][0] then return @null_scalar
+    for [id_a, coeff_a, grade_a] in a
+      for [id_b, coeff_b, grade_b] in b
+        continue if grade_b < grade_a  # Left contraction requires grade_b >= grade_a
+        indices = @id_bit_indices(id_a).concat(@id_bit_indices(id_b)).sort()
+        [indices, factor] = @merge_indices indices
+        coeff = coeff_a * coeff_b * factor
+        grade = indices.length
+        continue if coeff == 0
+        target_grade = grade_b - grade_a
+        continue unless grade is target_grade and coeff != 0
+        @coeffs_add coeffs, @id_from_bit_indices(indices), coeff, grade
+    @coeffs_to_mv coeffs
+
+  gp_one: (a, b) ->
+    coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
-      id_a_e = id_a & ~@id_null
-      id_a_n = id_a & @id_null
       for [id_b, coeff_b, grade_b] in b
-        id_b_e = id_b & ~@id_null
-        id_b_n = id_b & @id_null
-        indices_b = @id_bit_indices id_b
-        if id_a_n || id_b_n
-          @for_each_combination indices_b, indices_a.length, (indices_c, j) =>
-            sign = (-1) ** j
-            m = @ip_metric_full indices_a, indices_c
-            return unless m
-            id_c = @id_from_bit_indices @array_diff indices_b, indices_c
-            @coeffs_add coeffs, id_c, coeff_a * coeff_b * sign * m, @id_grade(id_c)
-        else if (id_a_e || id_b_e) and grade_a <= grade_b and id_a_e == (id_b_e & id_a_e)
-          console.log "here"
-          id_c = id_a_e ^ id_b_e
-          indices_c = @id_bit_indices id_c
-          if m = @ip_metric indices_c
-            sign = @sign_sorted indices_a, indices_c
-            @coeffs_add coeffs, id_c, coeff_a * coeff_b * sign * m, grade_b - grade_a
+        indices_ab = indices_a.concat @id_bit_indices id_b
+        indices = indices_ab.slice().sort()
+        sign = @sign indices_ab
+        coeff = coeff_a * coeff_b
+        [indices, factor] = @merge_indices indices
+        coeff *= factor * sign
+        continue unless coeff
+        @coeffs_add coeffs, @id_from_bit_indices(indices), coeff, indices.length
     @coeffs_to_mv coeffs
 
   ep_one: (a, b) ->
@@ -285,57 +281,6 @@ class sph_ga
         continue unless id
         sign = if id_b then @sign_sorted indices_a, @id_bit_indices id_b else 1
         @coeffs_add coeffs, id, sign * coeff_a * coeff_b, grade_a + grade_b
-    @coeffs_to_mv coeffs
-
-  gp_one: (a, b) ->
-    coeffs = {}
-    for [id_a, coeff_a, grade_a] in a
-      indices_a = @id_bit_indices id_a
-      for [id_b, coeff_b, grade_b] in b
-        indices_ab = indices_a.concat @id_bit_indices id_b
-        indices_c = indices_ab.slice().sort()
-        sign = @sign indices_ab
-        coeff = coeff_a * coeff_b
-        factor = 1
-        changed = true
-        while changed  # distinct-pair merging
-          changed = false
-          i = 0
-          while i < indices_c.length
-            j = i + 1
-            while j < indices_c.length
-              if indices_c[i] != indices_c[j]
-                m = @metric[indices_c[i]][indices_c[j]]
-                if m != 0
-                  factor *= m
-                  indices_c.splice j, 1
-                  indices_c.splice i, 1
-                  changed = true
-                  break
-              j += 1
-            break if changed
-            i += 1 unless changed
-        changed = true
-        while changed  # identical-pair merging
-          changed = false
-          i = 0
-          while i < indices_c.length
-            j = i + 1
-            while j < indices_c.length
-              if indices_c[i] is indices_c[j]
-                m = @metric[indices_c[i]][indices_c[i]]
-                factor *= m
-                indices_c.splice j, 1
-                indices_c.splice i, 1
-                changed = true
-                break
-              j += 1
-            break if changed
-            i += 1 unless changed
-        coeff *= factor * sign
-        continue unless coeff
-        id_c = @id_from_bit_indices indices_c
-        @coeffs_add coeffs, id_c, coeff, grade_a + grade_b
     @coeffs_to_mv coeffs
 
   ep: (...a) -> a.reduce (c, b) => @ep_one c, b
