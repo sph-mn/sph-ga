@@ -6,7 +6,7 @@ the focus of this implementation is on flexibility (functional with basic data s
 the collection of automated tests may also be useful for testing other geometric algebra libraries.
 
 ## status
-fundamentals have been implemented and tested. currently being refined through use in an initial application. users are encouraged to try the library and report any issues.
+calculation is being reworked and tested to be more robust. currently some tests still fail in certain cga scenarios.
 
 # usage
 compiled/sph_ga.js contains the javascript version.
@@ -125,15 +125,15 @@ vector :: (coefficient ...) -> multivector
 # create a multivector by specifying multiple blade terms
 mv :: (((basis_index ...) coefficient) ...) -> multivector
 
-# calculates the left contraction inner product.
+# calculates the left contraction clifford (geometric) inner product.
 # the grade of the first argument must be less than or equal to the grade of the second argument
-ip :: multivector multivector -> multivector
+ip :: multivector ... -> multivector
 
 # calculates the exterior product (also known as the wedge product or outer product)
-ep :: multivector multivector -> multivector
+ep :: multivector ... -> multivector
 
 # calculates the geometric product
-gp :: multivector multivector -> multivector
+gp :: multivector ... -> multivector
 
 # compute the sandwich product: a * b * a ** -1
 sp :: multivector multivector -> multivector
@@ -150,8 +150,8 @@ involute :: multivector -> multivector
 # each coefficient is multiplied by (-1) ** (k * (k + 1) / 2)
 conjugate :: multivector -> multivector
 
-add :: multivector multivector -> multivector
-subtract :: multivector multivector -> multivector
+add :: multivector ... -> multivector
+subtract :: multivector ... -> multivector
 pseudoscalar :: -> multivector
 inverse :: multivector -> multivector
 grade :: multivector -> integer
@@ -186,6 +186,17 @@ multivector: array:(blade ...)
 # conformal geometric algebra
 sph_ga has special features for cga. when the conformal option is set to true for a space, it automatically adds two dimensions and uses the conformal metric.
 
+* the null vectors will always be appended to the end of the list of canonical bases: e1, e2, ..., en, no, ni.
+* the default conformal metric is a split-signature metric with two off-diagonal -1 terms for the null vector interactions.
+  * ei · ei = 1 for 1 <= i <= n
+  * no · no = 0
+  * ni · ni = 0
+  * no · ni = -1
+  * ei · n0 = 0 and ei · ni = 0 for 1 <= i <= n
+  * ei · ej = 0 for i != j
+* the pseudoscalar is defined as: pseudoscalar = e1 * e2 * ... * en * no * ni
+  * normalization: pseudoscalar ** 2 = 1
+
 ## usage
 ~~~
 # only the euclidean part of the metric has to be specified.
@@ -215,6 +226,9 @@ point :: (coefficient ...) -> multivector
 
 # create a rotor. takes the coefficient for the scalar followed by the rotation axes
 rotor :: (coefficient ...) -> multivector
+
+# a normalized multivector across all basis blades
+normal :: -> multivector
 ~~~
 
 space properties
@@ -284,7 +298,7 @@ letter         = "a" | "b" | "c" | "d" | ... | "z" ;
 ~~~
 
 # tests
-most of the test cases are systematically generated. run via `./exe/tests`. the code for the test cases, data generator, and runner, is located in src/test.coffee.
+run via `./exe/tests`. the code for the test cases, data generator, and runner, is located in src/test.coffee.
 
 # excluded
 what this library will not provide:

@@ -10,17 +10,17 @@ class sph_ga
       if @is_conformal
         metric[@n - 1][@n - 2] = -1
         metric[@n - 2][@n - 1] = -1
-    [@is_symmetric, @is_diagonal, @null_vectors] = @metric_properties metric, @n
+    [@is_symmetric, @is_diagonal, @null_vector_count] = @metric_properties metric, @n
     unless @is_symmetric
       throw new Error "the metric must be symmetric in the non-null part"
     if @is_conformal
-      unless 2 == @null_vectors
+      unless 2 == @null_vector_count
         throw new Error "only two null vectors are allowed with \"conformal: true\". use a custom metric instead"
       unless @is_diagonal
         throw new Error "only diagonal metrics are allowed with \"conformal: true\". use a custom metric instead"
-    if @null_vectors
-      null_vector_start = @n - @null_vectors
-      @id_null = @id_from_indices [(null_vector_start + 1)..@n]
+    if @null_vector_count
+      @null_vector_start = @n - @null_vector_count
+      @id_null = @id_from_indices [(@null_vector_start + 1)..@n]
     @pseudoscalar_id = (1 << @n) - 1
     @metric = metric
     if @is_diagonal
@@ -174,6 +174,14 @@ class sph_ga
         matrix[1][2] * (matrix[2][0] * matrix[3][1] - matrix[2][1] * matrix[3][0]))
     else @determinant_generic matrix, n
 
+  array_remove_pair: (a, i, j) ->
+    if i < j
+      a.splice j, 1
+      a.splice i, 1
+    else
+      a.splice i, 1
+      a.splice j, 1
+
   for_each_combination: (array, n, f) ->
     generate = (prefix, rest, k, i) ->
       if k == 0
@@ -185,6 +193,13 @@ class sph_ga
       generate prefix, rest, k, i
     generate [], array, n, 0
 
+  sign: (indices) ->
+    c = 0
+    for i in [0...indices.length]
+      for j in [(i + 1)...indices.length]
+        c += 1 if indices[i] > indices[j]
+    (-1) ** c
+
   sign_sorted: (a, b) ->
     c = 0
     i = 0
@@ -193,87 +208,87 @@ class sph_ga
       if a[i] <= b[j]
         i += 1
       else
-        c += a.length - i
         j += 1
     (-1) ** c
 
-  sign: (indices) ->
-    c = 0
-    for i in [0...indices.length]
-      for j in [(i + 1)...indices.length]
-        c += 1 if indices[i] > indices[j]
-    (-1) ** c
+  ip_merge_indices: (aa, bb) ->
+    c = []
+    factor = 1
+    for a in aa
+      for b in bb
+        m = @metric[a][b]
+        continue unless m
+        factor *= m
+        if a != b &&  < @null_vector_start && b < @null_vector_start
 
-  permutations: (a, start = 0) ->
-    results = []
-    permute = (a, start) ->
-      if start is a.length
-        results.push a.slice()
-        return
-      for i in [start..(a.length - 1)]
-        b = a[start]
-        a[start] = a[i]
-        a[i] = b
-        permute a, start + 1
-        b = a[start]
-        a[start] = a[i]
-        a[i] = b
-    permute a, start
-    return results
-
-  permutation_parity: (perm) ->
-    n = perm.length
-    count_inversions = 0
-    for i in [0..n-2]
-      for j in [i+1..n-1]
-        if perm[j] < perm[i]
-          count_inversions += 1
-    return if (count_inversions % 2) == 0 then 1 else -1
-
-  ip_metric_full: (indices_a, indices_b) ->
-    return 0 if indices_a.length != indices_b.length
-    total = 0
-    all_perms = @permutations indices_b
-    for perm in all_perms
-      sign = @permutation_parity perm
-      product = 1
-      for i in [0..perm.length-1]
-        val = @metric[indices_a[i]][perm[i]]
-        if val == 0
-          product = 0
-          break
-        product *= val
-      total += sign * product
-    return total
+        c.push
+        console.log {a, b, m}
+    [c, factor]
 
   ip_one: (a, b) ->
+    console.log ""
     coeffs = {}
-    if 1 == a.length && !a[0][0]
-      if 1 == b.length && !b[0][0] then return [[0, a[0][1] * b[0][1], 0]]
-      else return @null_scalar
-    else if 1 == b.length && !b[0][0] then return @null_scalar
+    for [id_a, coeff_a, grade_a] in a
+      indices_a =  @id_bit_indices id_a
+      for [id_b, coeff_b, grade_b] in b
+        continue if grade_b < grade_a
+        target_grade = grade_b - grade_a
+        console.log @blade_to_string([id_a, coeff_a, grade_a]), @blade_to_string([id_b, coeff_b, grade_b])
+        [indices, factor] = @ip_merge_indices indices_a, @id_bit_indices(id_b)
+        coeff = coeff_a * coeff_b * factor
+        continue unless indices.length == target_grade && coeff
+        @coeffs_add coeffs, @id_from_bit_indices(indices), coeff, indices.length
+    @coeffs_to_mv coeffs
+
+  gp_merge_indices: (a) ->
+    factor = 1
+    changed = true
+    while changed
+      changed = false
+      i = 0
+      while i < a.length
+        j = i + 1
+        while j < a.length
+          if a[i] != a[j]
+            m = @metric[a[i]][a[j]]
+            if m != 0
+              factor *= m
+              @array_remove_pair a, i, j
+              changed = true
+              j = i
+            else j += 1
+          else j += 1
+        i += 1
+    changed = true
+    while changed
+      changed = false
+      i = 0
+      while i < a.length
+        j = i + 1
+        while j < a.length
+          if a[i] is a[j]
+            m = @metric[a[i]][a[i]]
+            factor *= m
+            @array_remove_pair a, i, j
+            changed = true
+            j = i
+          else j += 1
+        i += 1
+    [a, factor]
+
+  gp_one: (a, b) ->
+    coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
-      id_a_e = id_a & ~@id_null
-      id_a_n = id_a & @id_null
       for [id_b, coeff_b, grade_b] in b
-        id_b_e = id_b & ~@id_null
-        id_b_n = id_b & @id_null
-        indices_b = @id_bit_indices id_b
-        if id_a_n || id_b_n
-          @for_each_combination indices_b, indices_a.length, (indices_c, j) =>
-            sign = (-1) ** j
-            m = @ip_metric_full indices_a, indices_c
-            return unless m
-            id_c = @id_from_bit_indices @array_diff indices_b, indices_c
-            @coeffs_add coeffs, id_c, coeff_a * coeff_b * sign * m, @id_grade(id_c)
-        else if (id_a_e || id_b_e) and grade_a <= grade_b and id_a_e == (id_b_e & id_a_e)
-          console.log "here"
-          id_c = id_a_e ^ id_b_e
-          indices_c = @id_bit_indices id_c
-          if m = @ip_metric indices_c
-            sign = @sign_sorted indices_a, indices_c
-            @coeffs_add coeffs, id_c, coeff_a * coeff_b * sign * m, grade_b - grade_a
+        indices_ab = indices_a.concat @id_bit_indices id_b
+        indices = indices_ab.slice().sort()
+        sign = @sign indices_ab
+        coeff = coeff_a * coeff_b
+        [indices, factor] = @gp_merge_indices indices
+        coeff *= factor * sign
+        continue unless coeff
+        @coeffs_add coeffs, @id_from_bit_indices(indices), coeff, indices.length
     @coeffs_to_mv coeffs
 
   ep_one: (a, b) ->
@@ -285,57 +300,6 @@ class sph_ga
         continue unless id
         sign = if id_b then @sign_sorted indices_a, @id_bit_indices id_b else 1
         @coeffs_add coeffs, id, sign * coeff_a * coeff_b, grade_a + grade_b
-    @coeffs_to_mv coeffs
-
-  gp_one: (a, b) ->
-    coeffs = {}
-    for [id_a, coeff_a, grade_a] in a
-      indices_a = @id_bit_indices id_a
-      for [id_b, coeff_b, grade_b] in b
-        indices_ab = indices_a.concat @id_bit_indices id_b
-        indices_c = indices_ab.slice().sort()
-        sign = @sign indices_ab
-        coeff = coeff_a * coeff_b
-        factor = 1
-        changed = true
-        while changed  # distinct-pair merging
-          changed = false
-          i = 0
-          while i < indices_c.length
-            j = i + 1
-            while j < indices_c.length
-              if indices_c[i] != indices_c[j]
-                m = @metric[indices_c[i]][indices_c[j]]
-                if m != 0
-                  factor *= m
-                  indices_c.splice j, 1
-                  indices_c.splice i, 1
-                  changed = true
-                  break
-              j += 1
-            break if changed
-            i += 1 unless changed
-        changed = true
-        while changed  # identical-pair merging
-          changed = false
-          i = 0
-          while i < indices_c.length
-            j = i + 1
-            while j < indices_c.length
-              if indices_c[i] is indices_c[j]
-                m = @metric[indices_c[i]][indices_c[i]]
-                factor *= m
-                indices_c.splice j, 1
-                indices_c.splice i, 1
-                changed = true
-                break
-              j += 1
-            break if changed
-            i += 1 unless changed
-        coeff *= factor * sign
-        continue unless coeff
-        id_c = @id_from_bit_indices indices_c
-        @coeffs_add coeffs, id_c, coeff, grade_a + grade_b
     @coeffs_to_mv coeffs
 
   ep: (...a) -> a.reduce (c, b) => @ep_one c, b
@@ -368,7 +332,9 @@ class sph_ga
     [id, coeff, grade] = a
     if id
       base = "e" + @id_bit_indices(id).map((b) -> b + 1).join "_"
-      if 1 == coeff then base else coeff + base
+      if 1 == coeff then base
+      else if -1 == coeff then "-#{base}"
+      else coeff + base
     else coeff
 
   mv_to_string: (a) -> (@blade_to_string b for b in a).join " + "
