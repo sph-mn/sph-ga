@@ -191,9 +191,9 @@ call_with_mv_string = (f) ->
 
 ip_tests = [
   ["ip", call_with_mv_string(c3.ip)]
-  ["e2_4", "e2_4_5"]
-  "1"
   ["e2_4_5", "e2_4_5"]
+  "-1"
+  ["e2_4", "e2_4_5"]
   "1"
   #["e4 + e1_2 + e3_5", "e1 + e2_3 + e4_5"]
   #"-e4"

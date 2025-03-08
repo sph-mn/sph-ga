@@ -208,36 +208,50 @@ class sph_ga
       if a[i] <= b[j]
         i += 1
       else
+        c += 1
         j += 1
     (-1) ** c
 
-  ip_merge_indices: (aa, bb) ->
-    c = []
-    factor = 1
-    for a in aa
-      for b in bb
-        m = @metric[a][b]
-        continue unless m
-        factor *= m
-        if a != b &&  < @null_vector_start && b < @null_vector_start
-
-        c.push
-        console.log {a, b, m}
-    [c, factor]
+  ip_merge_indices_recursive: (a, b) ->
+    if a.length is 0 then return [ { merged: b.slice().sort((x, y) -> x - y), factor: 1 } ]
+    results = []
+    for i in [0...a.length]
+      aa = a[i]
+      for j in [0...b.length]
+        bb = b[j]
+        m = @metric[aa - 1][bb - 1]
+        if m isnt 0
+          sign_a = (-1) ** i
+          sign_b = (-1) ** j
+          factor_here = m * sign_a * sign_b
+          a_remaining = a.slice(0, i).concat a.slice(i + 1)
+          b_remaining = b.slice(0, j).concat b.slice(j + 1)
+          sub_results = @ip_merge_indices_recursive(a_remaining, b_remaining)
+          for sub in sub_results
+            results.push { merged: sub.merged, factor: factor_here * sub.factor }
+    return results
 
   ip_one: (a, b) ->
-    console.log ""
     coeffs = {}
     for [id_a, coeff_a, grade_a] in a
-      indices_a =  @id_bit_indices id_a
+      indices_a = @id_bit_indices id_a
       for [id_b, coeff_b, grade_b] in b
         continue if grade_b < grade_a
         target_grade = grade_b - grade_a
-        console.log @blade_to_string([id_a, coeff_a, grade_a]), @blade_to_string([id_b, coeff_b, grade_b])
-        [indices, factor] = @ip_merge_indices indices_a, @id_bit_indices(id_b)
-        coeff = coeff_a * coeff_b * factor
-        continue unless indices.length == target_grade && coeff
-        @coeffs_add coeffs, @id_from_bit_indices(indices), coeff, indices.length
+        pairing_results = @ip_merge_indices_recursive(indices_a, @id_bit_indices(id_b))
+        total_factor = 0
+        common_merged = null
+        for pr in pairing_results
+          if pr.merged.length is target_grade
+            total_factor += pr.factor
+            common_merged = pr.merged
+        # Note: the standard left contraction is defined as
+        #    a · b = ⟨ b a^~ ⟩_(grade(b)-grade(a))
+        # If your blades are not pre–reversed, you can incorporate the reversion factor here.
+        # For now we assume that the injection summing accounts for all necessary sign changes.
+        coeff = coeff_a * coeff_b * total_factor
+        continue unless common_merged? and common_merged.length is target_grade and coeff
+        @coeffs_add coeffs, @id_from_bit_indices(common_merged), coeff, common_merged.length
     @coeffs_to_mv coeffs
 
   gp_merge_indices: (a) ->

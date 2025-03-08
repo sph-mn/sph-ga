@@ -6,7 +6,8 @@ the focus of this implementation is on flexibility (functional with basic data s
 the collection of automated tests may also be useful for testing other geometric algebra libraries.
 
 ## status
-calculation is being reworked and tested to be more robust. currently some tests still fail in certain cga scenarios.
+development has stalled because of a lack of clarity about how the inner product should be defined and implemented.
+inner products like "e2_4 ∙ e2_4_5" and "e2_4_5 ∙ e2_4_5", where 4 and 5 represent the indices of the cga null vectors n0 and n_infinity, could not be calculated in a way that could be confirmed as correct.
 
 # usage
 compiled/sph_ga.js contains the javascript version.
