@@ -41,7 +41,7 @@ class sph_ga
       rotation_axis_combinations = (n) ->
         combinations = []
         for i in [0...n]
-          for j in [i+1...n]
+          for j in [i + 1...n]
             combinations.push([i + 1, j + 1])
         combinations
       @rotation_axes = rotation_axis_combinations @n - 2
@@ -50,7 +50,11 @@ class sph_ga
         @mv [[[0], first]].concat([@rotation_axes[i], a] for a, i in rest)
       @point = (euclidean_coeffs) ->
         ni_coeff = @array_sum(a * a for a in euclidean_coeffs) / 2
-        @vector [0].concat(euclidean_coeffs).concat([1, ni_coeff])
+        @vector [0].concat(euclidean_coeffs).concat [1, ni_coeff]
+      @point_euclidean = (a) ->
+        n0  = @blade_coeff @get a, @no_id
+        c = (b[1] for b in a when 1 is b[2] and not (b[0] is @no_id or b[0] is @ni_id))
+        d / n0 for d in c
       @normal = @vector [0].concat Array(@n).fill 1 / Math.sqrt @n
 
   add_one: (a, b) -> @combine a, b, 1
@@ -82,6 +86,12 @@ class sph_ga
   sp: (a, b) -> @gp @gp(a, b), @inverse(a)
   subtract_one: (a, b) -> @combine a, b, -1
   vector: (coeffs) -> @basis_blade i, a for a, i in coeffs when a
+  ep: (...a) -> a.reduce (c, b) => @ep_one c, b
+  ip: (...a) -> a.reduce (c, b) => @ip_one c, b
+  gp: (...a) -> a.reduce (c, b) => @gp_one c, b
+  add: (...a) -> a.reduce (c, b) => @add_one c, b
+  subtract: (...a) -> a.reduce (c, b) => @subtract_one c, b
+  mv_to_string: (a) -> (@blade_to_string b for b in a).join " + "
 
   blade: (indices, coeff) ->
     if indices[0] then [@id_from_indices(indices), coeff, indices.length]
@@ -138,13 +148,13 @@ class sph_ga
     @id_grade_cache[a] = n
     n
 
-  determinant_generic = (a, n) ->
+  determinant_generic: (a, n) ->
     return a[0][0] if n == 1
     b = 0
     for j in [0...n]
       c = (a[i][0...j].concat a[i][j + 1...]) for i in [1...n]
       sign = if 0 == j % 2 then 1 else -1
-      b += sign * a[0][j] * determinant_generic(c)
+      b += sign * a[0][j] * @determinant_generic(c)
     b
 
   determinant: (matrix) ->
@@ -182,17 +192,6 @@ class sph_ga
       a.splice i, 1
       a.splice j, 1
 
-  for_each_combination: (array, n, f) ->
-    generate = (prefix, rest, k, i) ->
-      if k == 0
-        f prefix, i
-        return i + 1
-      return i if rest.length == 0
-      [first, rest...] = rest
-      i = generate prefix.concat([first]), rest, k - 1, i
-      generate prefix, rest, k, i
-    generate [], array, n, 0
-
   sign: (indices) ->
     c = 0
     for i in [0...indices.length]
@@ -212,97 +211,106 @@ class sph_ga
         j += 1
     (-1) ** c
 
-  ip_merge_indices_recursive: (a, b) ->
-    if a.length is 0 then return [ { merged: b.slice().sort((x, y) -> x - y), factor: 1 } ]
-    results = []
-    for i in [0...a.length]
-      aa = a[i]
-      for j in [0...b.length]
-        bb = b[j]
-        m = @metric[aa - 1][bb - 1]
-        if m isnt 0
-          sign_a = (-1) ** i
-          sign_b = (-1) ** j
-          factor_here = m * sign_a * sign_b
-          a_remaining = a.slice(0, i).concat a.slice(i + 1)
-          b_remaining = b.slice(0, j).concat b.slice(j + 1)
-          sub_results = @ip_merge_indices_recursive(a_remaining, b_remaining)
-          for sub in sub_results
-            results.push { merged: sub.merged, factor: factor_here * sub.factor }
-    return results
-
   ip_one: (a, b) ->
+    choose = (a, k) ->  # return all combinations of "k" elements from "a".
+      if k is 0 then return [[]]
+      if a.length < k then return []
+      head = a[0]
+      tail = a.slice 1
+      with_head = choose tail, k - 1
+      with_head = with_head.map (combo) -> [head].concat combo
+      without_head = choose tail, k
+      with_head.concat without_head
+    sign_of_choice = (combo) ->
+      s = 0
+      s += combo[i] - i for i in [0...combo.length]
+      (-1) ** s
+    inner_product_terms = (a, b) =>
+      n = a.length
+      indices = [0...b.length]
+      for combo in choose indices, n
+        chosen = (b[i] for i in combo)
+        c = indices.filter (i) -> not (i in combo)
+        coeff = sign_of_choice combo
+        coeff *= @metric[a[i]][chosen[i]] for i in [0...a.length]
+        id = @id_from_bit_indices (b[i] for i in c)
+        [id, coeff, c.length]
+    ip_equal_grade = (a, b) =>
+      # for 1-blades use the metric directly.
+      if a.length is 1 then @s @metric[a[0]][b[0]]
+      else
+        m = for i in [0...a.length]  # -> gram_matrix
+          @metric[a[i]][b[j]] for j in [0...b.length]
+        s = (-1) ** (a.length * (a.length - 1) / 2)
+        @s(- s * @determinant m)
     coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
       for [id_b, coeff_b, grade_b] in b
         continue if grade_b < grade_a
-        target_grade = grade_b - grade_a
-        pairing_results = @ip_merge_indices_recursive(indices_a, @id_bit_indices(id_b))
-        total_factor = 0
-        common_merged = null
-        for pr in pairing_results
-          if pr.merged.length is target_grade
-            total_factor += pr.factor
-            common_merged = pr.merged
-        # Note: the standard left contraction is defined as
-        #    a · b = ⟨ b a^~ ⟩_(grade(b)-grade(a))
-        # If your blades are not pre–reversed, you can incorporate the reversion factor here.
-        # For now we assume that the injection summing accounts for all necessary sign changes.
-        coeff = coeff_a * coeff_b * total_factor
-        continue unless common_merged? and common_merged.length is target_grade and coeff
-        @coeffs_add coeffs, @id_from_bit_indices(common_merged), coeff, common_merged.length
+        indices_b = @id_bit_indices id_b
+        if grade_a is grade_b then c = ip_equal_grade indices_a, indices_b
+        else c = inner_product_terms indices_a, indices_b
+        for [id_c, coeff_c, grade_c] in c
+          @coeffs_add coeffs, id_c, coeff_a * coeff_b * coeff_c, grade_c
     @coeffs_to_mv coeffs
 
-  gp_merge_indices: (a) ->
-    factor = 1
-    changed = true
-    while changed
-      changed = false
-      i = 0
-      while i < a.length
-        j = i + 1
-        while j < a.length
-          if a[i] != a[j]
-            m = @metric[a[i]][a[j]]
-            if m != 0
-              factor *= m
-              @array_remove_pair a, i, j
-              changed = true
-              j = i
-            else j += 1
-          else j += 1
-        i += 1
-    changed = true
-    while changed
-      changed = false
-      i = 0
-      while i < a.length
-        j = i + 1
-        while j < a.length
-          if a[i] is a[j]
-            m = @metric[a[i]][a[i]]
-            factor *= m
-            @array_remove_pair a, i, j
-            changed = true
-            j = i
-          else j += 1
-        i += 1
-    [a, factor]
-
   gp_one: (a, b) ->
+    merge_indices = (indices) =>
+      # merge the basis vector indices from two blades while incorporating metric factors.
+      factor = 1
+      changed = true
+      # first pass: process pairs of distinct indices with non-zero off-diagonal metric terms.
+      while changed
+        changed = false
+        i = 0
+        while i < indices.length
+          j = i + 1
+          while j < indices.length
+            # check if indices differ; if so, see if their off-diagonal metric element contributes.
+            if indices[i] != indices[j]
+              m = @metric[indices[i]][indices[j]]
+              if m != 0
+                factor *= m
+                # remove the pair because their metric factor has been factored out.
+                @array_remove_pair indices, i, j
+                changed = true
+                break
+              else
+                j += 1
+            else
+              j += 1
+          i += 1
+      changed = true
+      # second pass: process duplicate indices using the corresponding diagonal metric factors.
+      while changed
+        changed = false
+        i = 0
+        while i < indices.length
+          j = i + 1
+          while j < indices.length
+            # when two identical indices are found, multiply by the square from the metric.
+            if indices[i] is indices[j]
+              m = @metric[indices[i]][indices[i]]
+              factor *= m
+              # remove the duplicate pair to simplify the blade.
+              @array_remove_pair indices, i, j
+              changed = true
+              break
+            else j += 1
+          i += 1
+      [indices, factor]
     coeffs = {}
     for [id_a, coeff_a, grade_a] in a
       indices_a = @id_bit_indices id_a
       for [id_b, coeff_b, grade_b] in b
-        indices_ab = indices_a.concat @id_bit_indices id_b
-        indices = indices_ab.slice().sort()
-        sign = @sign indices_ab
-        coeff = coeff_a * coeff_b
-        [indices, factor] = @gp_merge_indices indices
-        coeff *= factor * sign
-        continue unless coeff
-        @coeffs_add coeffs, @id_from_bit_indices(indices), coeff, indices.length
+        indices_b = @id_bit_indices id_b
+        combined = indices_a.concat indices_b
+        sign = @sign combined
+        [merged, m_factor] = merge_indices combined.slice()
+        final_coeff = coeff_a * coeff_b * sign * m_factor
+        continue unless final_coeff
+        @coeffs_add coeffs, @id_from_bit_indices(merged), final_coeff, merged.length
     @coeffs_to_mv coeffs
 
   ep_one: (a, b) ->
@@ -315,12 +323,6 @@ class sph_ga
         sign = if id_b then @sign_sorted indices_a, @id_bit_indices id_b else 1
         @coeffs_add coeffs, id, sign * coeff_a * coeff_b, grade_a + grade_b
     @coeffs_to_mv coeffs
-
-  ep: (...a) -> a.reduce (c, b) => @ep_one c, b
-  ip: (...a) -> a.reduce (c, b) => @ip_one c, b
-  gp: (...a) -> a.reduce (c, b) => @gp_one c, b
-  add: (...a) -> a.reduce (c, b) => @add_one c, b
-  subtract: (...a) -> a.reduce (c, b) => @subtract_one c, b
 
   combine: (a, b, scalar = 1) ->
     coeffs = {}
@@ -350,8 +352,6 @@ class sph_ga
       else if -1 == coeff then "-#{base}"
       else coeff + base
     else coeff
-
-  mv_to_string: (a) -> (@blade_to_string b for b in a).join " + "
 
   blade_from_string: (a) ->
     match = a.match /^(?:(\d+(?:\.\d+)?))?([a-z]+)?(?:([\d_]+))?$/

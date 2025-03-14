@@ -1,16 +1,15 @@
 # sph-ga
-this is a javascript library for fundamental calculations in euclidean and conformal geometric algebras. custom algebras are supported.
+this is a javascript library for fundamental calculations in euclidean and conformal geometric algebras.
 
-the focus of this implementation is on flexibility (functional with basic data structures and loose coupling for easy abstraction) as well as compactness and generality (straightforward with no limitations).
+the focus of this implementation is on flexibility (functional with basic data structures and loose coupling for easy abstraction) as well as compactness and generality (straightforward with no workarounds or limitations).
 
 the collection of automated tests may also be useful for testing other geometric algebra libraries.
 
-## status
-development has stalled because of a lack of clarity about how the inner product should be defined and implemented.
-inner products like "e2_4 ∙ e2_4_5" and "e2_4_5 ∙ e2_4_5", where 4 and 5 represent the indices of the cga null vectors n0 and n_infinity, could not be calculated in a way that could be confirmed as correct.
+**status**
+a new approach for calculating the inner product has been implemented and is being tested.
 
 # usage
-compiled/sph_ga.js contains the javascript version.
+`compiled/sph_ga.js` contains the javascript version.
 use with node.js via `require("./sph_ga.js")` or include the code in html using `<script type="text/javascript" src="sph_ga.js"></script>`.
 
 # usage
@@ -196,7 +195,7 @@ sph_ga has special features for cga. when the conformal option is set to true fo
   * ei · n0 = 0 and ei · ni = 0 for 1 <= i <= n
   * ei · ej = 0 for i != j
 * the pseudoscalar is defined as: pseudoscalar = e1 * e2 * ... * en * no * ni
-  * normalization: pseudoscalar ** 2 = 1
+  * normalization: pseudoscalar ** 2 = 1   (0 for degenerate metrics, such as with conformal: true)
 
 ## usage
 ~~~
@@ -216,10 +215,10 @@ reflected_point = c3.gp c3.gp(c3.reverse(n), point), n
 ## extended api when `conformal` is true
 functions
 ~~~
-# create a basis vector for the origin. also known as "e0" and "e+"
+# create a basis vector for the origin. also known as "n0"
 no :: coefficient -> multivector
 
-# create a basis vector for infinity. also known as "e∞"" and "e-"
+# create a basis vector for infinity. also known as "n∞"
 ni :: coefficient -> multivector
 
 # create a conformal point. requires only the coefficients for the euclidean part
@@ -240,7 +239,7 @@ no_id
 ni_id
 ~~~
 
-these should better use the name `no` and `ni`, but coffeescript does not allow `no` as a variable name, which might be inconvenient.
+note that coffeescript does not allow `no` as a variable name.
 
 # customization
 ## metric tensor
@@ -305,8 +304,11 @@ run via `./exe/tests`. the code for the test cases, data generator, and runner, 
 what this library will not provide:
 * operator overloading
 * code generation
-* string notation for complex operations
+* string notation for complex calculations
 * graphical functions
+
+what this library does not do:
+* translation of cga expressions into an equivalent minkowski space with a diagonalized metric
 
 # license
 lgpl3+

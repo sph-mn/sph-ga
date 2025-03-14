@@ -3,11 +3,9 @@ var sph_ga,
   indexOf = [].indexOf;
 
 sph_ga = (function() {
-  var determinant_generic;
-
   class sph_ga {
     constructor(metric, options = {}) {
-      var null_vector_start, ref, ref1, rotation_axis_combinations;
+      var ref, ref1, rotation_axis_combinations;
       this.n = metric.length;
       this.is_conformal = !!options.conformal;
       if (!Array.isArray(metric[0])) {
@@ -21,24 +19,24 @@ sph_ga = (function() {
           metric[this.n - 2][this.n - 1] = -1;
         }
       }
-      [this.is_symmetric, this.is_diagonal, this.null_vectors] = this.metric_properties(metric, this.n);
+      [this.is_symmetric, this.is_diagonal, this.null_vector_count] = this.metric_properties(metric, this.n);
       if (!this.is_symmetric) {
         throw new Error("the metric must be symmetric in the non-null part");
       }
       if (this.is_conformal) {
-        if (2 !== this.null_vectors) {
+        if (2 !== this.null_vector_count) {
           throw new Error("only two null vectors are allowed with \"conformal: true\". use a custom metric instead");
         }
         if (!this.is_diagonal) {
           throw new Error("only diagonal metrics are allowed with \"conformal: true\". use a custom metric instead");
         }
       }
-      if (this.null_vectors) {
-        null_vector_start = this.n - this.null_vectors;
+      if (this.null_vector_count) {
+        this.null_vector_start = this.n - this.null_vector_count;
         this.id_null = this.id_from_indices((function() {
-          var results1 = [];
-          for (var l = ref = null_vector_start + 1, ref1 = this.n; ref <= ref1 ? l <= ref1 : l >= ref1; ref <= ref1 ? l++ : l--){ results1.push(l); }
-          return results1;
+          var results = [];
+          for (var l = ref = this.null_vector_start + 1, ref1 = this.n; ref <= ref1 ? l <= ref1 : l >= ref1; ref <= ref1 ? l++ : l--){ results.push(l); }
+          return results;
         }).apply(this));
       }
       this.pseudoscalar_id = (1 << this.n) - 1;
@@ -47,13 +45,13 @@ sph_ga = (function() {
         this.ip_metric = function(indices) {
           var i;
           return this.array_product((function() {
-            var l, len, results1;
-            results1 = [];
+            var l, len, results;
+            results = [];
             for (l = 0, len = indices.length; l < len; l++) {
               i = indices[l];
-              results1.push(this.metric[i][i]);
+              results.push(this.metric[i][i]);
             }
-            return results1;
+            return results;
           }).call(this));
         };
       } else {
@@ -63,21 +61,21 @@ sph_ga = (function() {
             return 1;
           }
           return this.determinant((function() {
-            var l, len, results1;
-            results1 = [];
+            var l, len, results;
+            results = [];
             for (l = 0, len = indices.length; l < len; l++) {
               i = indices[l];
-              results1.push((function() {
-                var len1, o, results2;
-                results2 = [];
+              results.push((function() {
+                var len1, o, results1;
+                results1 = [];
                 for (o = 0, len1 = indices.length; o < len1; o++) {
                   j = indices[o];
-                  results2.push(this.metric[i][j]);
+                  results1.push(this.metric[i][j]);
                 }
-                return results2;
+                return results1;
               }).call(this));
             }
-            return results1;
+            return results;
           }).call(this));
         };
       }
@@ -109,27 +107,48 @@ sph_ga = (function() {
           var a, first, i, rest;
           [first, ...rest] = coeffs;
           return this.mv([[[0], first]].concat((function() {
-            var l, len, results1;
-            results1 = [];
+            var l, len, results;
+            results = [];
             for (i = l = 0, len = rest.length; l < len; i = ++l) {
               a = rest[i];
-              results1.push([this.rotation_axes[i], a]);
+              results.push([this.rotation_axes[i], a]);
             }
-            return results1;
+            return results;
           }).call(this)));
         };
         this.point = function(euclidean_coeffs) {
           var a, ni_coeff;
           ni_coeff = this.array_sum((function() {
-            var l, len, results1;
-            results1 = [];
+            var l, len, results;
+            results = [];
             for (l = 0, len = euclidean_coeffs.length; l < len; l++) {
               a = euclidean_coeffs[l];
-              results1.push(a * a);
+              results.push(a * a);
             }
-            return results1;
+            return results;
           })()) / 2;
           return this.vector([0].concat(euclidean_coeffs).concat([1, ni_coeff]));
+        };
+        this.point_euclidean = function(a) {
+          var b, c, d, l, len, n0, results;
+          n0 = this.blade_coeff(this.get(a, this.no_id));
+          c = (function() {
+            var l, len, results;
+            results = [];
+            for (l = 0, len = a.length; l < len; l++) {
+              b = a[l];
+              if (1 === b[2] && !(b[0] === this.no_id || b[0] === this.ni_id)) {
+                results.push(b[1]);
+              }
+            }
+            return results;
+          }).call(this);
+          results = [];
+          for (l = 0, len = c.length; l < len; l++) {
+            d = c[l];
+            results.push(d / n0);
+          }
+          return results;
         };
         this.normal = this.vector([0].concat(Array(this.n).fill(1 / Math.sqrt(this.n))));
       }
@@ -228,23 +247,23 @@ sph_ga = (function() {
     }
 
     map_grade_factor(a, f) {
-      var coeff, grade, id, l, len, results1;
-      results1 = [];
+      var coeff, grade, id, l, len, results;
+      results = [];
       for (l = 0, len = a.length; l < len; l++) {
         [id, coeff, grade] = a[l];
-        results1.push([id, coeff * f(grade), grade]);
+        results.push([id, coeff * f(grade), grade]);
       }
-      return results1;
+      return results;
     }
 
     mv(terms) {
-      var coeff, indices, l, len, results1;
-      results1 = [];
+      var coeff, indices, l, len, results;
+      results = [];
       for (l = 0, len = terms.length; l < len; l++) {
         [indices, coeff] = terms[l];
-        results1.push(this.blade(indices, coeff));
+        results.push(this.blade(indices, coeff));
       }
-      return results1;
+      return results;
     }
 
     negate(a) {
@@ -255,9 +274,9 @@ sph_ga = (function() {
       var ref;
       return [
         this.blade((function() {
-          var results1 = [];
-          for (var l = 1, ref = this.n; 1 <= ref ? l <= ref : l >= ref; 1 <= ref ? l++ : l--){ results1.push(l); }
-          return results1;
+          var results = [];
+          for (var l = 1, ref = this.n; 1 <= ref ? l <= ref : l >= ref; 1 <= ref ? l++ : l--){ results.push(l); }
+          return results;
         }).apply(this),
         1)
       ];
@@ -270,13 +289,13 @@ sph_ga = (function() {
     }
 
     scale(mv, a) {
-      var coeff, grade, id, l, len, results1;
-      results1 = [];
+      var coeff, grade, id, l, len, results;
+      results = [];
       for (l = 0, len = mv.length; l < len; l++) {
         [id, coeff, grade] = mv[l];
-        results1.push([id, coeff * a, grade]);
+        results.push([id, coeff * a, grade]);
       }
-      return results1;
+      return results;
     }
 
     s(coeff) {
@@ -292,15 +311,58 @@ sph_ga = (function() {
     }
 
     vector(coeffs) {
-      var a, i, l, len, results1;
-      results1 = [];
+      var a, i, l, len, results;
+      results = [];
       for (i = l = 0, len = coeffs.length; l < len; i = ++l) {
         a = coeffs[i];
         if (a) {
-          results1.push(this.basis_blade(i, a));
+          results.push(this.basis_blade(i, a));
         }
       }
-      return results1;
+      return results;
+    }
+
+    ep(...a) {
+      return a.reduce((c, b) => {
+        return this.ep_one(c, b);
+      });
+    }
+
+    ip(...a) {
+      return a.reduce((c, b) => {
+        return this.ip_one(c, b);
+      });
+    }
+
+    gp(...a) {
+      return a.reduce((c, b) => {
+        return this.gp_one(c, b);
+      });
+    }
+
+    add(...a) {
+      return a.reduce((c, b) => {
+        return this.add_one(c, b);
+      });
+    }
+
+    subtract(...a) {
+      return a.reduce((c, b) => {
+        return this.subtract_one(c, b);
+      });
+    }
+
+    mv_to_string(a) {
+      var b;
+      return ((function() {
+        var l, len, results;
+        results = [];
+        for (l = 0, len = a.length; l < len; l++) {
+          b = a[l];
+          results.push(this.blade_to_string(b));
+        }
+        return results;
+      }).call(this)).join(" + ");
     }
 
     blade(indices, coeff) {
@@ -314,15 +376,15 @@ sph_ga = (function() {
     coeffs_to_mv(coeffs) {
       var a, coeff, grade, id;
       a = (function() {
-        var results1;
-        results1 = [];
+        var results;
+        results = [];
         for (id in coeffs) {
           [coeff, grade] = coeffs[id];
           if (coeff !== 0) {
-            results1.push([parseInt(id), coeff, grade]);
+            results.push([parseInt(id), coeff, grade]);
           }
         }
-        return results1;
+        return results;
       })();
       if (a.length) {
         return a;
@@ -332,15 +394,15 @@ sph_ga = (function() {
     }
 
     id_indices(id) {
-      var a, l, len, ref, results1;
+      var a, l, len, ref, results;
       if (id) {
         ref = this.id_bit_indices(id);
-        results1 = [];
+        results = [];
         for (l = 0, len = ref.length; l < len; l++) {
           a = ref[l];
-          results1.push(1 + a);
+          results.push(1 + a);
         }
-        return results1;
+        return results;
       } else {
         return [0];
       }
@@ -352,14 +414,14 @@ sph_ga = (function() {
         return this.id_bit_indices_cache[id];
       }
       a = (function() {
-        var l, ref, results1;
-        results1 = [];
+        var l, ref, results;
+        results = [];
         for (i = l = 0, ref = this.n; (0 <= ref ? l < ref : l > ref); i = 0 <= ref ? ++l : --l) {
           if (id & (1 << i)) {
-            results1.push(i);
+            results.push(i);
           }
         }
-        return results1;
+        return results;
       }).call(this);
       this.id_bit_indices_cache[id] = a;
       return a;
@@ -432,6 +494,22 @@ sph_ga = (function() {
       return n;
     }
 
+    determinant_generic(a, n) {
+      var b, c, i, j, l, o, ref, ref1, sign;
+      if (n === 1) {
+        return a[0][0];
+      }
+      b = 0;
+      for (j = l = 0, ref = n; (0 <= ref ? l < ref : l > ref); j = 0 <= ref ? ++l : --l) {
+        for (i = o = 1, ref1 = n; (1 <= ref1 ? o < ref1 : o > ref1); i = 1 <= ref1 ? ++o : --o) {
+          c = a[i].slice(0, j).concat(a[i].slice(j + 1));
+        }
+        sign = 0 === j % 2 ? 1 : -1;
+        b += sign * a[0][j] * this.determinant_generic(c);
+      }
+      return b;
+    }
+
     determinant(matrix) {
       var n;
       n = matrix.length;
@@ -448,38 +526,14 @@ sph_ga = (function() {
       }
     }
 
-    for_each_combination(array, n, f) {
-      var generate;
-      generate = function(prefix, rest, k, i) {
-        var first;
-        if (k === 0) {
-          f(prefix, i);
-          return i + 1;
-        }
-        if (rest.length === 0) {
-          return i;
-        }
-        [first, ...rest] = rest;
-        i = generate(prefix.concat([first]), rest, k - 1, i);
-        return generate(prefix, rest, k, i);
-      };
-      return generate([], array, n, 0);
-    }
-
-    sign_sorted(a, b) {
-      var c, i, j;
-      c = 0;
-      i = 0;
-      j = 0;
-      while (i < a.length && j < b.length) {
-        if (a[i] <= b[j]) {
-          i += 1;
-        } else {
-          c += a.length - i;
-          j += 1;
-        }
+    array_remove_pair(a, i, j) {
+      if (i < j) {
+        a.splice(j, 1);
+        return a.splice(i, 1);
+      } else {
+        a.splice(i, 1);
+        return a.splice(j, 1);
       }
-      return (-1) ** c;
     }
 
     sign(indices) {
@@ -495,115 +549,213 @@ sph_ga = (function() {
       return (-1) ** c;
     }
 
-    permutations(a, start = 0) {
-      var permute, results;
-      results = [];
-      permute = function(a, start) {
-        var b, i, l, ref, ref1, results1;
-        if (start === a.length) {
-          results.push(a.slice());
-          return;
-        }
-        results1 = [];
-        for (i = l = ref = start, ref1 = a.length - 1; (ref <= ref1 ? l <= ref1 : l >= ref1); i = ref <= ref1 ? ++l : --l) {
-          b = a[start];
-          a[start] = a[i];
-          a[i] = b;
-          permute(a, start + 1);
-          b = a[start];
-          a[start] = a[i];
-          results1.push(a[i] = b);
-        }
-        return results1;
-      };
-      permute(a, start);
-      return results;
-    }
-
-    permutation_parity(perm) {
-      var count_inversions, i, j, l, n, o, ref, ref1, ref2;
-      n = perm.length;
-      count_inversions = 0;
-      for (i = l = 0, ref = n - 2; (0 <= ref ? l <= ref : l >= ref); i = 0 <= ref ? ++l : --l) {
-        for (j = o = ref1 = i + 1, ref2 = n - 1; (ref1 <= ref2 ? o <= ref2 : o >= ref2); j = ref1 <= ref2 ? ++o : --o) {
-          if (perm[j] < perm[i]) {
-            count_inversions += 1;
-          }
+    sign_sorted(a, b) {
+      var c, i, j;
+      c = 0;
+      i = 0;
+      j = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] <= b[j]) {
+          i += 1;
+        } else {
+          c += 1;
+          j += 1;
         }
       }
-      if ((count_inversions % 2) === 0) {
-        return 1;
-      } else {
-        return -1;
-      }
-    }
-
-    ip_metric_full(indices_a, indices_b) {
-      var all_perms, i, l, len, o, perm, product, ref, sign, total, val;
-      if (indices_a.length !== indices_b.length) {
-        return 0;
-      }
-      total = 0;
-      all_perms = this.permutations(indices_b);
-      for (l = 0, len = all_perms.length; l < len; l++) {
-        perm = all_perms[l];
-        sign = this.permutation_parity(perm);
-        product = 1;
-        for (i = o = 0, ref = perm.length - 1; (0 <= ref ? o <= ref : o >= ref); i = 0 <= ref ? ++o : --o) {
-          val = this.metric[indices_a[i]][perm[i]];
-          if (val === 0) {
-            product = 0;
-            break;
-          }
-          product *= val;
-        }
-        total += sign * product;
-      }
-      return total;
+      return (-1) ** c;
     }
 
     ip_one(a, b) {
-      var coeff_a, coeff_b, coeffs, grade_a, grade_b, id_a, id_a_e, id_a_n, id_b, id_b_e, id_b_n, id_c, indices_a, indices_b, indices_c, l, len, len1, m, o, sign;
-      coeffs = {};
-      if (1 === a.length && !a[0][0]) {
-        if (1 === b.length && !b[0][0]) {
-          return [[0, a[0][1] * b[0][1], 0]];
-        } else {
-          return this.null_scalar;
+      var c, choose, coeff_a, coeff_b, coeff_c, coeffs, grade_a, grade_b, grade_c, id_a, id_b, id_c, indices_a, indices_b, inner_product_terms, ip_equal_grade, l, len, len1, len2, o, p, sign_of_choice;
+      choose = function(a, k) { // return all combinations of "k" elements from "a".
+        var head, tail, with_head, without_head;
+        if (k === 0) {
+          return [[]];
         }
-      } else if (1 === b.length && !b[0][0]) {
-        return this.null_scalar;
-      }
+        if (a.length < k) {
+          return [];
+        }
+        head = a[0];
+        tail = a.slice(1);
+        with_head = choose(tail, k - 1);
+        with_head = with_head.map(function(combo) {
+          return [head].concat(combo);
+        });
+        without_head = choose(tail, k);
+        return with_head.concat(without_head);
+      };
+      sign_of_choice = function(combo) {
+        var i, l, ref, s;
+        s = 0;
+        for (i = l = 0, ref = combo.length; (0 <= ref ? l < ref : l > ref); i = 0 <= ref ? ++l : --l) {
+          s += combo[i] - i;
+        }
+        return (-1) ** s;
+      };
+      inner_product_terms = (a, b) => {
+        var c, chosen, coeff, combo, i, id, indices, l, len, n, o, ref, ref1, ref2, results;
+        n = a.length;
+        indices = (function() {
+          var results = [];
+          for (var l = 0, ref = b.length; 0 <= ref ? l < ref : l > ref; 0 <= ref ? l++ : l--){ results.push(l); }
+          return results;
+        }).apply(this);
+        ref1 = choose(indices, n);
+        results = [];
+        for (l = 0, len = ref1.length; l < len; l++) {
+          combo = ref1[l];
+          chosen = (function() {
+            var len1, o, results1;
+            results1 = [];
+            for (o = 0, len1 = combo.length; o < len1; o++) {
+              i = combo[o];
+              results1.push(b[i]);
+            }
+            return results1;
+          })();
+          c = indices.filter(function(i) {
+            return !(indexOf.call(combo, i) >= 0);
+          });
+          coeff = sign_of_choice(combo);
+          for (i = o = 0, ref2 = a.length; (0 <= ref2 ? o < ref2 : o > ref2); i = 0 <= ref2 ? ++o : --o) {
+            coeff *= this.metric[a[i]][chosen[i]];
+          }
+          id = this.id_from_bit_indices((function() {
+            var len1, p, results1;
+            results1 = [];
+            for (p = 0, len1 = c.length; p < len1; p++) {
+              i = c[p];
+              results1.push(b[i]);
+            }
+            return results1;
+          })());
+          results.push([id, coeff, c.length]);
+        }
+        return results;
+      };
+      ip_equal_grade = (a, b) => {
+        var i, j, m, s;
+        // for 1-blades use the metric directly.
+        if (a.length === 1) {
+          return this.s(this.metric[a[0]][b[0]]);
+        } else {
+          m = (function() {
+            var l, ref, results;
+// -> gram_matrix
+            results = [];
+            for (i = l = 0, ref = a.length; (0 <= ref ? l < ref : l > ref); i = 0 <= ref ? ++l : --l) {
+              results.push((function() {
+                var o, ref1, results1;
+                results1 = [];
+                for (j = o = 0, ref1 = b.length; (0 <= ref1 ? o < ref1 : o > ref1); j = 0 <= ref1 ? ++o : --o) {
+                  results1.push(this.metric[a[i]][b[j]]);
+                }
+                return results1;
+              }).call(this));
+            }
+            return results;
+          }).call(this);
+          s = (-1) ** (a.length * (a.length - 1) / 2);
+          return this.s(-s * this.determinant(m));
+        }
+      };
+      coeffs = {};
       for (l = 0, len = a.length; l < len; l++) {
         [id_a, coeff_a, grade_a] = a[l];
         indices_a = this.id_bit_indices(id_a);
-        id_a_e = id_a & ~this.id_null;
-        id_a_n = id_a & this.id_null;
         for (o = 0, len1 = b.length; o < len1; o++) {
           [id_b, coeff_b, grade_b] = b[o];
-          id_b_e = id_b & ~this.id_null;
-          id_b_n = id_b & this.id_null;
-          indices_b = this.id_bit_indices(id_b);
-          if (id_a_n || id_b_n) {
-            this.for_each_combination(indices_b, indices_a.length, (indices_c, j) => {
-              var id_c, m, sign;
-              sign = (-1) ** j;
-              m = this.ip_metric_full(indices_a, indices_c);
-              if (!m) {
-                return;
-              }
-              id_c = this.id_from_bit_indices(this.array_diff(indices_b, indices_c));
-              return this.coeffs_add(coeffs, id_c, coeff_a * coeff_b * sign * m, this.id_grade(id_c));
-            });
-          } else if ((id_a_e || id_b_e) && grade_a <= grade_b && id_a_e === (id_b_e & id_a_e)) {
-            console.log("here");
-            id_c = id_a_e ^ id_b_e;
-            indices_c = this.id_bit_indices(id_c);
-            if (m = this.ip_metric(indices_c)) {
-              sign = this.sign_sorted(indices_a, indices_c);
-              this.coeffs_add(coeffs, id_c, coeff_a * coeff_b * sign * m, grade_b - grade_a);
-            }
+          if (grade_b < grade_a) {
+            continue;
           }
+          indices_b = this.id_bit_indices(id_b);
+          if (grade_a === grade_b) {
+            c = ip_equal_grade(indices_a, indices_b);
+          } else {
+            c = inner_product_terms(indices_a, indices_b);
+          }
+          for (p = 0, len2 = c.length; p < len2; p++) {
+            [id_c, coeff_c, grade_c] = c[p];
+            this.coeffs_add(coeffs, id_c, coeff_a * coeff_b * coeff_c, grade_c);
+          }
+        }
+      }
+      return this.coeffs_to_mv(coeffs);
+    }
+
+    gp_one(a, b) {
+      var coeff_a, coeff_b, coeffs, combined, final_coeff, grade_a, grade_b, id_a, id_b, indices_a, indices_b, l, len, len1, m_factor, merge_indices, merged, o, sign;
+      merge_indices = (indices) => {
+        var changed, factor, i, j, m;
+        // merge the basis vector indices from two blades while incorporating metric factors.
+        factor = 1;
+        changed = true;
+        // first pass: process pairs of distinct indices with non-zero off-diagonal metric terms.
+        while (changed) {
+          changed = false;
+          i = 0;
+          while (i < indices.length) {
+            j = i + 1;
+            while (j < indices.length) {
+              // check if indices differ; if so, see if their off-diagonal metric element contributes.
+              if (indices[i] !== indices[j]) {
+                m = this.metric[indices[i]][indices[j]];
+                if (m !== 0) {
+                  factor *= m;
+                  // remove the pair because their metric factor has been factored out.
+                  this.array_remove_pair(indices, i, j);
+                  changed = true;
+                  break;
+                } else {
+                  j += 1;
+                }
+              } else {
+                j += 1;
+              }
+            }
+            i += 1;
+          }
+        }
+        changed = true;
+        // second pass: process duplicate indices using the corresponding diagonal metric factors.
+        while (changed) {
+          changed = false;
+          i = 0;
+          while (i < indices.length) {
+            j = i + 1;
+            while (j < indices.length) {
+              // when two identical indices are found, multiply by the square from the metric.
+              if (indices[i] === indices[j]) {
+                m = this.metric[indices[i]][indices[i]];
+                factor *= m;
+                // remove the duplicate pair to simplify the blade.
+                this.array_remove_pair(indices, i, j);
+                changed = true;
+                break;
+              } else {
+                j += 1;
+              }
+            }
+            i += 1;
+          }
+        }
+        return [indices, factor];
+      };
+      coeffs = {};
+      for (l = 0, len = a.length; l < len; l++) {
+        [id_a, coeff_a, grade_a] = a[l];
+        indices_a = this.id_bit_indices(id_a);
+        for (o = 0, len1 = b.length; o < len1; o++) {
+          [id_b, coeff_b, grade_b] = b[o];
+          indices_b = this.id_bit_indices(id_b);
+          combined = indices_a.concat(indices_b);
+          sign = this.sign(combined);
+          [merged, m_factor] = merge_indices(combined.slice());
+          final_coeff = coeff_a * coeff_b * sign * m_factor;
+          if (!final_coeff) {
+            continue;
+          }
+          this.coeffs_add(coeffs, this.id_from_bit_indices(merged), final_coeff, merged.length);
         }
       }
       return this.coeffs_to_mv(coeffs);
@@ -631,112 +783,6 @@ sph_ga = (function() {
       return this.coeffs_to_mv(coeffs);
     }
 
-    gp_one(a, b) {
-      var changed, coeff, coeff_a, coeff_b, coeffs, factor, grade_a, grade_b, i, id_a, id_b, id_c, indices_a, indices_ab, indices_c, j, l, len, len1, m, o, sign;
-      coeffs = {};
-      for (l = 0, len = a.length; l < len; l++) {
-        [id_a, coeff_a, grade_a] = a[l];
-        indices_a = this.id_bit_indices(id_a);
-        for (o = 0, len1 = b.length; o < len1; o++) {
-          [id_b, coeff_b, grade_b] = b[o];
-          indices_ab = indices_a.concat(this.id_bit_indices(id_b));
-          indices_c = indices_ab.slice().sort();
-          sign = this.sign(indices_ab);
-          coeff = coeff_a * coeff_b;
-          factor = 1;
-          changed = true;
-          while (changed) { // distinct-pair merging
-            changed = false;
-            i = 0;
-            while (i < indices_c.length) {
-              j = i + 1;
-              while (j < indices_c.length) {
-                if (indices_c[i] !== indices_c[j]) {
-                  m = this.metric[indices_c[i]][indices_c[j]];
-                  if (m !== 0) {
-                    factor *= m;
-                    indices_c.splice(j, 1);
-                    indices_c.splice(i, 1);
-                    changed = true;
-                    break;
-                  }
-                }
-                j += 1;
-              }
-              if (changed) {
-                break;
-              }
-              if (!changed) {
-                i += 1;
-              }
-            }
-          }
-          changed = true;
-          while (changed) { // identical-pair merging
-            changed = false;
-            i = 0;
-            while (i < indices_c.length) {
-              j = i + 1;
-              while (j < indices_c.length) {
-                if (indices_c[i] === indices_c[j]) {
-                  m = this.metric[indices_c[i]][indices_c[i]];
-                  factor *= m;
-                  indices_c.splice(j, 1);
-                  indices_c.splice(i, 1);
-                  changed = true;
-                  break;
-                }
-                j += 1;
-              }
-              if (changed) {
-                break;
-              }
-              if (!changed) {
-                i += 1;
-              }
-            }
-          }
-          coeff *= factor * sign;
-          if (!coeff) {
-            continue;
-          }
-          id_c = this.id_from_bit_indices(indices_c);
-          this.coeffs_add(coeffs, id_c, coeff, grade_a + grade_b);
-        }
-      }
-      return this.coeffs_to_mv(coeffs);
-    }
-
-    ep(...a) {
-      return a.reduce((c, b) => {
-        return this.ep_one(c, b);
-      });
-    }
-
-    ip(...a) {
-      return a.reduce((c, b) => {
-        return this.ip_one(c, b);
-      });
-    }
-
-    gp(...a) {
-      return a.reduce((c, b) => {
-        return this.gp_one(c, b);
-      });
-    }
-
-    add(...a) {
-      return a.reduce((c, b) => {
-        return this.add_one(c, b);
-      });
-    }
-
-    subtract(...a) {
-      return a.reduce((c, b) => {
-        return this.subtract_one(c, b);
-      });
-    }
-
     combine(a, b, scalar = 1) {
       var c, coeff, coeffs, grade, id, l, len, len1, o;
       coeffs = {};
@@ -753,15 +799,15 @@ sph_ga = (function() {
         }
       }
       c = (function() {
-        var results1;
-        results1 = [];
+        var results;
+        results = [];
         for (id in coeffs) {
           [coeff, grade] = coeffs[id];
           if (coeff !== 0) {
-            results1.push([parseInt(id), coeff, grade]);
+            results.push([parseInt(id), coeff, grade]);
           }
         }
-        return results1;
+        return results;
       })();
       if (c.length) {
         return c;
@@ -771,7 +817,7 @@ sph_ga = (function() {
     }
 
     inverse(a) {
-      var a_reverse, coeff, denom, denom_mv, grade, id, l, len, len1, o, results1;
+      var a_reverse, coeff, denom, denom_mv, grade, id, l, len, len1, o, results;
       a_reverse = this.reverse(a);
       denom_mv = this.gp(a, a_reverse);
       denom = 0;
@@ -785,12 +831,12 @@ sph_ga = (function() {
       if (denom === 0) {
         throw new Error("multivector is not invertible (denominator is zero).");
       }
-      results1 = [];
+      results = [];
       for (o = 0, len1 = a_reverse.length; o < len1; o++) {
         [id, coeff, grade] = a_reverse[o];
-        results1.push([parseInt(id), coeff / denom, grade]);
+        results.push([parseInt(id), coeff / denom, grade]);
       }
-      return results1;
+      return results;
     }
 
     blade_to_string(a) {
@@ -802,25 +848,14 @@ sph_ga = (function() {
         }).join("_");
         if (1 === coeff) {
           return base;
+        } else if (-1 === coeff) {
+          return `-${base}`;
         } else {
           return coeff + base;
         }
       } else {
         return coeff;
       }
-    }
-
-    mv_to_string(a) {
-      var b;
-      return ((function() {
-        var l, len, results1;
-        results1 = [];
-        for (l = 0, len = a.length; l < len; l++) {
-          b = a[l];
-          results1.push(this.blade_to_string(b));
-        }
-        return results1;
-      }).call(this)).join(" + ");
     }
 
     blade_from_string(a) {
@@ -832,14 +867,14 @@ sph_ga = (function() {
       left_number = match[1] != null ? parseFloat(match[1]) : null;
       letters = match[2] != null ? match[2] : null;
       right_numbers = match[3] != null ? (function() {
-        var l, len, ref, results1;
+        var l, len, ref, results;
         ref = match[3].split("_");
-        results1 = [];
+        results = [];
         for (l = 0, len = ref.length; l < len; l++) {
           n = ref[l];
-          results1.push(parseInt(n));
+          results.push(parseInt(n));
         }
-        return results1;
+        return results;
       })() : null;
       result = [];
       coeff = left_number != null ? left_number : 1;
@@ -862,14 +897,14 @@ sph_ga = (function() {
     }
 
     mv_from_string(a) {
-      var b, l, len, ref, results1;
+      var b, l, len, ref, results;
       ref = a.split(" + ");
-      results1 = [];
+      results = [];
       for (l = 0, len = ref.length; l < len; l++) {
         b = ref[l];
-        results1.push(this.blade_from_string(b));
+        results.push(this.blade_from_string(b));
       }
-      return results1;
+      return results;
     }
 
   };
@@ -879,22 +914,6 @@ sph_ga = (function() {
   sph_ga.prototype.id_grade_cache = {};
 
   sph_ga.prototype.null_scalar = [[0, 0, 0]];
-
-  determinant_generic = function(a, n) {
-    var b, c, i, j, l, o, ref, ref1, sign;
-    if (n === 1) {
-      return a[0][0];
-    }
-    b = 0;
-    for (j = l = 0, ref = n; (0 <= ref ? l < ref : l > ref); j = 0 <= ref ? ++l : --l) {
-      for (i = o = 1, ref1 = n; (1 <= ref1 ? o < ref1 : o > ref1); i = 1 <= ref1 ? ++o : --o) {
-        c = a[i].slice(0, j).concat(a[i].slice(j + 1));
-      }
-      sign = 0 === j % 2 ? 1 : -1;
-      b += sign * a[0][j] * determinant_generic(c);
-    }
-    return b;
-  };
 
   return sph_ga;
 

@@ -1,4 +1,4 @@
-sph_ga = require "./sph_ga.coffee"
+sph_ga = require "./sph_ga"
 
 class test_runner_class
   # this class executes automated tests based on an array format.
@@ -178,6 +178,7 @@ class custom_test_runner_class extends test_runner_class
     @report_compact_failure_strings = (inp, exp, out) ->
       [((@is_mv_to_string a for a in inp).join " "), @is_mv_to_string(exp), out]
 
+r3 = new sph_ga [1, 1, 1]
 c3 = new sph_ga [1, 1, 1], conformal: true
 
 # uncomment to generate and display new test data.
@@ -191,12 +192,12 @@ call_with_mv_string = (f) ->
 
 ip_tests = [
   ["ip", call_with_mv_string(c3.ip)]
+  ["e2_4", "e2_4_5"]
+  "e4"
   ["e2_4_5", "e2_4_5"]
   "-1"
-  ["e2_4", "e2_4_5"]
-  "1"
-  #["e4 + e1_2 + e3_5", "e1 + e2_3 + e4_5"]
-  #"-e4"
+  ["e4 + e1_2 + e3_5", "e1 + e2_3 + e4_5"]
+  "e4"
   ["e4", "e5"],
   "-1"
   ["e5", "e4"],
@@ -206,15 +207,13 @@ ip_tests = [
   ["6e1 + 7e4", "8e4_5 + 9e2_3_5"]
   "-63e2_3 + 56e4"
   ["4e4_1_2", "3e4_1_2_5"]
-  "-12e4"
+  "12e4"
   ["e1_4", "e1_5"]
   "-1"
   ["e1_5", "e1_4"]
   "-1"
-  ["2e1_2_3_4_5", "e1_2_3_4_5"]
-  "2"
-  ["2", "3"]
-  "6"
+  ["2e1_2_3", "e1_2_3_4_5"]
+  "2e4_5"
   ["4", "5e1"]
   "20e1"
   ["6e2", "7"]
@@ -222,7 +221,7 @@ ip_tests = [
   ["8e1_2", "9e1"]
   "0"
   ["9e5", "2e2_4_5"]
-  "-18e2_5"
+  "18e2_5"
   ["e5", "e5"],
   "0"
   ["e4", "e4"],
@@ -244,7 +243,7 @@ ip_tests = [
   ["7e2", "8e4"]
   "0"
   ["8e2", "9e1_2_4"]
-  "72e1_4"
+  "-72e1_4"
   ["3e5", "4e1"]
   "0"
   ["6e5", "7e1_3"]
@@ -256,7 +255,7 @@ ip_tests = [
   ["3e5", "4e5"]
   "0"
   ["5e4", "6e4_5"]
-  "-30e4"
+  "30e4"
   ["e4", "e4"]
   "0"
   ["e5", "e5"]
@@ -274,7 +273,7 @@ ip_tests = [
   ["e3", "e3"]
   "1"
   ["e4_5", "e4_5"]
-  "1"
+  "-1"
   ["e1_4", "e1_4"]
   "0"
   ["e1_5", "e1_5"]
@@ -286,7 +285,7 @@ ip_tests = [
   ["e4_5", "e2_3"]
   "0"
   ["e1_4_5", "e1_4_5"]
-  "1"
+  "-1"
   ["e1_2_5", "e1_4_5"]
   "0"
   ["e1_2_4_5", "e1_2_4_5"]
@@ -294,7 +293,7 @@ ip_tests = [
   ["e1_2_4_5", "e1_2_3_5"]
   "0"
   ["e1_2_3_4_5", "e1_2_3_4_5"]
-  "1"
+  "0"
   ["e1 + e5", "e1 + e5"]
   "1"
   ["2", "3e4"]
@@ -377,6 +376,12 @@ gp_tests = [
   "48e2 + -54e2_3"
 ]
 
+gp_r3_tests = [
+  ["gp_r3", call_with_mv_string(r3.gp)]
+  ["e1_2_3", "e1_2_3"]
+  "-1"
+]
+
 ep_tests = [
   ["ep", call_with_mv_string(c3.ep)]
   ["2", "3"]
@@ -391,8 +396,8 @@ ep_tests = [
   "0"
   ["7e1_3", "8e3_5"]
   "0"
-  #["8e3", "9e1"]
-  #"-72e1_3"
+  ["8e3", "9e1"]
+  "-72e1_3"
   ["2e2", "3e2"]
   "0"
   ["4e3", "5e1_2"]
@@ -403,12 +408,12 @@ ep_tests = [
   "56e2_4"
   ["2e1", "3e4_5"]
   "6e1_4_5"
-  #["6e1_4", "5e3"]
-  #"-30e1_3_4"
+  ["6e1_4", "5e3"]
+  "-30e1_3_4"
   ["8e2", "9e1_2_4"]
   "0"
-  #["9e1_5", "2e3"]
-  #"-18e1_3_5"
+  ["9e1_5", "2e3"]
+  "-18e1_3_5"
   ["6e1 + 7e4", "8e4_5 + 9e2_3_5"]
   "54e1_2_3_5 + 48e1_4_5 + 63e2_3_4_5"
 ]
@@ -416,6 +421,7 @@ ep_tests = [
 test_runner.execute [
   ip_tests
   gp_tests
+  gp_r3_tests
   ep_tests
   [
     ["id_bit_indices", ((...inp) -> (c3.id_bit_indices i for i in inp))]
@@ -429,31 +435,31 @@ test_runner.execute [
     "e1"
     "e1"
     "e1_2"
-    "-1e1_2"
+    "-e1_2"
     "e1_2_3"
-    "-1e1_2_3"
+    "-e1_2_3"
     "1 + e1"
     "1 + e1"
     "1 + e1 + e1_2"
-    "1 + e1 + -1e1_2"
+    "1 + e1 + -e1_2"
     "1 + e1 + e2 + e1_2 + e1_3 + e1_2_3"
-    "1 + e1 + e2 + -1e1_2 + -1e1_3 + -1e1_2_3"
+    "1 + e1 + e2 + -e1_2 + -e1_3 + -e1_2_3"
   ]
   [
     ["involute", call_with_mv_string(c3.involute)]
     "e1"
-    "-1e1"
+    "-e1"
     "e1_2"
     "e1_2"
     "e1_2_3"
-    "-1e1_2_3"
+    "-e1_2_3"
   ]
   [
     ["conjugate", call_with_mv_string(c3.conjugate)]
     "e1"
-    "-1e1"
+    "-e1"
     "e1_2"
-    "-1e1_2"
+    "-e1_2"
     "e1_2_3"
     "e1_2_3"
   ]
