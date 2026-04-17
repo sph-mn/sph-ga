@@ -1,0 +1,53 @@
+#!/bin/sh -e
+# usage: ./exe/install [prefix] [--symlink]
+
+prefix=$1
+mode=$2
+
+library_name=libsph-ga.a
+library_source=$PWD/tmp/$library_name
+header_source_root=$PWD/src/sph-ga
+foreign_header_root=$PWD/src/foreign/sph-ga/sph
+
+library_root=$prefix/usr/lib
+include_root=$prefix/usr/include
+
+file_permissions=600
+directory_permissions=700
+
+copy_file() {
+  install -m "$file_permissions" "$1" "$2"
+}
+
+copy_directory() {
+  install -d -m "$directory_permissions" "$1"
+}
+
+link_path() {
+  ln -sf "$1" "$2"
+}
+
+put_file() {
+  if test "$mode" = --symlink; then
+    link_path "$1" "$2"
+  else
+    copy_file "$1" "$2"
+  fi
+}
+
+put_directory() {
+  copy_directory "$1"
+}
+
+put_directory "$library_root"
+put_directory "$include_root"
+put_directory "$include_root/sph-ga"
+put_directory "$include_root/sph-ga/sph"
+
+put_file "$library_source" "$library_root/$library_name"
+
+put_file "$header_source_root/sph-ga.h" "$include_root/sph-ga.h"
+
+for header in "$foreign_header_root"/*; do
+  put_file "$header" "$include_root/sph-ga/sph/$(basename "$header")"
+done

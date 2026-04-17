@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+# usage: ./exe/install-symlink [path-prefix]
+
+./exe/install "$1" --symlink
