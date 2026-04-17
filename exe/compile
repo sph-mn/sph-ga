@@ -1,0 +1,35 @@
+#!/bin/sh -e
+
+optimization="g -g"
+root="$PWD"
+object_dir="$root/tmp"
+exe_dir="$root/exe/compiled"
+c="$root/src"
+compiler=gcc
+
+warnings="-Wall -Wfatal-errors"
+test_link_options=""
+common_options="-std=c17 -pedantic-errors -D_POSIX_C_SOURCE=200809L -D_FILE_OFFSET_BITS=64 $warnings -fno-common -fno-math-errno -O$optimization"
+include_options="-I$c"
+archive=ar
+archive_options="rcs"
+
+compile_sph_ga() {
+  mkdir -p "$object_dir"
+  src="$c/sph-ga/sph-ga.c"
+  obj="$object_dir/sph-ga.o"
+  lib="$object_dir/libsph-ga.a"
+  $compiler $common_options $include_options -c "$src" -o "$obj"
+  rm -f "$lib"
+  $archive $archive_options "$lib" "$obj"
+}
+
+compile_test_sph_ga() {
+  mkdir -p "$object_dir" "$exe_dir"
+  test_src="$root/src/test/sph-ga.c"
+  test_exe="$exe_dir/test-sph-ga"
+  $compiler $common_options $include_options "$test_src" "$object_dir/libsph-ga.a" $test_link_options -o "$test_exe"
+}
+
+compile_sph_ga
+compile_test_sph_ga
