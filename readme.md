@@ -394,3 +394,7 @@ This library does not provide:
 
 ## license
 `lgpl3+`
+
+## thanks to
+* [pablo colapinto](https://github.com/wolftype/versor) for the c++ geometric algebra template library libvsr
+* [wesley smith](https://github.com/weshoke/versor.js) for the javascript port versor.js
